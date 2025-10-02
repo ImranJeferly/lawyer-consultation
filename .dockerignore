@@ -1,0 +1,13 @@
+node_modules
+npm-debug.log
+Dockerfile
+dist
+.git
+.gitignore
+.env
+.env.*
+logs
+firebase-service-account.json
+.vscode
+coverage
+*.tsbuildinfo
