@@ -1,0 +1,783 @@
+import { authenticator } from 'otplib';
+import { randomBytes, createHash } from 'crypto';
+import qrcode from 'qrcode';
+import bcrypt from 'bcryptjs';
+import prisma from '../config/database';
+import { MFAMethod, MFAPurpose, MFAAction, MFADeviceType } from '@prisma/client';
+import notificationService from './notification.service';
+import { encryptData, decryptData } from '../utils/encryption';
+
+// Configuration constants
+const MFA_CONFIG = {
+  TOTP: {
+    window: 2,
+    step: 30,
+    digits: 6,
+    algorithm: 'sha1',
+    issuer: 'LawyerConsult',
+  },
+  BACKUP_CODES: {
+    count: 10,
+    length: 8,
+  },
+  RATE_LIMITING: {
+    maxAttempts: 5,
+    lockoutDuration: 15 * 60 * 1000, // 15 minutes
+    cooldownPeriod: 60 * 1000, // 1 minute between attempts
+  },
+  SMS: {
+    codeLength: 6,
+    expiration: 5 * 60 * 1000, // 5 minutes
+  },
+  EMAIL: {
+    codeLength: 8,
+    expiration: 10 * 60 * 1000, // 10 minutes
+  },
+};
+
+interface MFASetupResult {
+  success: boolean;
+  secret?: string;
+  qrCodeUrl?: string;
+  backupCodes?: string[];
+  error?: string;
+}
+
+interface MFAVerificationResult {
+  success: boolean;
+  requiresMFA?: boolean;
+  allowedMethods?: MFAMethod[];
+  message?: string;
+  error?: string;
+  riskScore?: number;
+}
+
+interface MFAStatusResult {
+  enabled: boolean;
+  methods: MFAMethod[];
+  primaryMethod: MFAMethod;
+  fallbackMethod: MFAMethod;
+  backupCodesRemaining: number;
+  lastUsed?: Date;
+  trusted: boolean;
+}
+
+class MFAService {
+  private encryptionKey: string;
+
+  constructor() {
+    this.encryptionKey = process.env.MFA_ENCRYPTION_KEY || process.env.JWT_SECRET || 'fallback-key';
+    
+    // Configure TOTP library
+    authenticator.options = {
+      window: MFA_CONFIG.TOTP.window,
+      step: MFA_CONFIG.TOTP.step,
+      digits: MFA_CONFIG.TOTP.digits,
+      algorithm: MFA_CONFIG.TOTP.algorithm as any,
+    };
+  }
+
+  /**
+   * Initialize MFA setup for a user
+   */
+  async initializeMFA(userId: string): Promise<MFASetupResult> {
+    try {
+      // Check if user already has MFA setup
+      const existingSetup = await prisma.mFASetup.findUnique({
+        where: { userId },
+      });
+
+      if (existingSetup && existingSetup.totpVerified) {
+        return {
+          success: false,
+          error: 'MFA is already enabled for this user',
+        };
+      }
+
+      // Generate TOTP secret
+      const secret = authenticator.generateSecret();
+      const encryptedSecret = await encryptData(secret, this.encryptionKey);
+
+      // Get user details for QR code
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, firstName: true, lastName: true },
+      });
+
+      if (!user) {
+        return { success: false, error: 'User not found' };
+      }
+
+      // Generate QR code
+      const label = `${user.firstName} ${user.lastName} (${user.email})`;
+      const otpauth = authenticator.keyuri(user.email, MFA_CONFIG.TOTP.issuer, secret);
+      const qrCodeUrl = await qrcode.toDataURL(otpauth);
+
+      // Create or update MFA setup
+      await prisma.mFASetup.upsert({
+        where: { userId },
+        create: {
+          userId,
+          totpSecret: encryptedSecret,
+          totpVerified: false,
+          primaryMethod: MFAMethod.NONE,
+          fallbackMethod: MFAMethod.NONE,
+        },
+        update: {
+          totpSecret: encryptedSecret,
+          totpVerified: false,
+        },
+      });
+
+      // Log the setup initiation
+      await this.logMFAAction(userId, MFAAction.SETUP_INITIATED, MFAMethod.TOTP, true);
+
+      return {
+        success: true,
+        secret,
+        qrCodeUrl,
+      };
+    } catch (error) {
+      console.error('MFA initialization error:', error);
+      return {
+        success: false,
+        error: 'Failed to initialize MFA',
+      };
+    }
+  }
+
+  /**
+   * Verify TOTP code and complete MFA setup
+   */
+  async verifyAndEnableTOTP(userId: string, code: string, deviceInfo?: any): Promise<MFAVerificationResult> {
+    try {
+      const mfaSetup = await prisma.mFASetup.findUnique({
+        where: { userId },
+      });
+
+      if (!mfaSetup || !mfaSetup.totpSecret) {
+        return {
+          success: false,
+          error: 'MFA setup not found. Please initialize MFA first.',
+        };
+      }
+
+      // Decrypt secret
+      const secret = await decryptData(mfaSetup.totpSecret, this.encryptionKey);
+      
+      // Verify the code
+      const isValid = authenticator.check(code, secret);
+
+      if (!isValid) {
+        await this.logMFAAction(userId, MFAAction.VERIFICATION_FAILED, MFAMethod.TOTP, false);
+        await this.handleFailedAttempt(userId);
+        
+        return {
+          success: false,
+          error: 'Invalid verification code',
+        };
+      }
+
+      // Generate backup codes
+      const backupCodes = this.generateBackupCodes();
+      const encryptedBackupCodes = await Promise.all(
+        backupCodes.map(code => encryptData(code, this.encryptionKey))
+      );
+
+      // Enable TOTP and update user
+      await prisma.$transaction(async (tx) => {
+        // Update MFA setup
+        await tx.mFASetup.update({
+          where: { userId },
+          data: {
+            totpVerified: true,
+            totpBackupCodes: encryptedBackupCodes,
+            primaryMethod: MFAMethod.TOTP,
+            fallbackMethod: MFAMethod.BACKUP,
+            setupCompletedAt: new Date(),
+            lastUsedAt: new Date(),
+          },
+        });
+
+        // Update user MFA status
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            mfaEnabled: true,
+            mfaMethod: MFAMethod.TOTP,
+            mfaLastUsedAt: new Date(),
+          },
+        });
+      });
+
+      // Log successful setup
+      await this.logMFAAction(userId, MFAAction.TOTP_ENABLED, MFAMethod.TOTP, true);
+
+      // Register device if provided
+      if (deviceInfo) {
+        await this.registerDevice(userId, deviceInfo);
+      }
+
+      // Send notification
+      await notificationService.sendNotification({
+        recipientId: userId,
+        title: '🔐 Multi-Factor Authentication Enabled',
+        message: 'Two-factor authentication has been successfully enabled for your account.',
+        notificationType: 'SECURITY_ALERT',
+        status: 'HIGH',
+        channels: ['IN_APP', 'EMAIL'],
+      });
+
+      return {
+        success: true,
+        message: 'TOTP successfully enabled',
+      };
+    } catch (error) {
+      console.error('TOTP verification error:', error);
+      return {
+        success: false,
+        error: 'Failed to verify TOTP code',
+      };
+    }
+  }
+
+  /**
+   * Verify MFA code during login or sensitive operations
+   */
+  async verifyMFA(
+    userId: string, 
+    code: string, 
+    method: MFAMethod, 
+    purpose: MFAPurpose = MFAPurpose.LOGIN,
+    context?: any
+  ): Promise<MFAVerificationResult> {
+    try {
+      // Check if account is locked
+      const mfaSetup = await prisma.mFASetup.findUnique({
+        where: { userId },
+      });
+
+      if (!mfaSetup) {
+        return {
+          success: false,
+          error: 'MFA not enabled for this user',
+        };
+      }
+
+      // Check if account is locked
+      if (mfaSetup.lockedUntil && new Date() < mfaSetup.lockedUntil) {
+        return {
+          success: false,
+          error: 'Account temporarily locked due to too many failed attempts',
+        };
+      }
+
+      let isValid = false;
+
+      switch (method) {
+        case MFAMethod.TOTP:
+          isValid = await this.verifyTOTPCode(userId, code);
+          break;
+        
+        case MFAMethod.BACKUP:
+          isValid = await this.verifyBackupCode(userId, code);
+          break;
+        
+        case MFAMethod.SMS:
+          isValid = await this.verifySMSCode(userId, code);
+          break;
+        
+        case MFAMethod.EMAIL:
+          isValid = await this.verifyEmailCode(userId, code);
+          break;
+        
+        default:
+          return {
+            success: false,
+            error: 'Unsupported MFA method',
+          };
+      }
+
+      // Log the attempt
+      await this.logVerificationAttempt(userId, method, isValid, purpose, context);
+
+      if (isValid) {
+        // Update last used timestamp
+        await prisma.mFASetup.update({
+          where: { userId },
+          data: {
+            lastUsedAt: new Date(),
+            failedAttempts: 0, // Reset failed attempts
+          },
+        });
+
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            mfaLastUsedAt: new Date(),
+          },
+        });
+
+        await this.logMFAAction(userId, MFAAction.VERIFICATION_SUCCESS, method, true);
+
+        return { success: true };
+      } else {
+        await this.handleFailedAttempt(userId);
+        await this.logMFAAction(userId, MFAAction.VERIFICATION_FAILED, method, false);
+
+        return {
+          success: false,
+          error: 'Invalid verification code',
+        };
+      }
+    } catch (error) {
+      console.error('MFA verification error:', error);
+      return {
+        success: false,
+        error: 'Failed to verify MFA code',
+      };
+    }
+  }
+
+  /**
+   * Get MFA status for a user
+   */
+  async getMFAStatus(userId: string): Promise<MFAStatusResult> {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          mfaSetup: true,
+          mfaDevices: {
+            where: { trusted: true },
+            orderBy: { lastUsedAt: 'desc' },
+          },
+        },
+      });
+
+      if (!user || !user.mfaSetup) {
+        return {
+          enabled: false,
+          methods: [],
+          primaryMethod: MFAMethod.NONE,
+          fallbackMethod: MFAMethod.NONE,
+          backupCodesRemaining: 0,
+          trusted: false,
+        };
+      }
+
+      const setup = user.mfaSetup;
+      const methods: MFAMethod[] = [];
+
+      if (setup.totpVerified) methods.push(MFAMethod.TOTP);
+      if (setup.smsEnabled && setup.smsVerified) methods.push(MFAMethod.SMS);
+      if (setup.emailEnabled && setup.emailVerified) methods.push(MFAMethod.EMAIL);
+      if (setup.totpBackupCodes.length > 0) methods.push(MFAMethod.BACKUP);
+
+      // Calculate remaining backup codes
+      const backupCodesRemaining = Math.max(0, setup.totpBackupCodes.length - setup.recoveryCodesUsed);
+
+      return {
+        enabled: user.mfaEnabled,
+        methods,
+        primaryMethod: setup.primaryMethod,
+        fallbackMethod: setup.fallbackMethod,
+        backupCodesRemaining,
+        lastUsed: setup.lastUsedAt,
+        trusted: user.mfaDevices.length > 0,
+      };
+    } catch (error) {
+      console.error('Get MFA status error:', error);
+      throw new Error('Failed to get MFA status');
+    }
+  }
+
+  /**
+   * Generate new backup codes
+   */
+  async generateNewBackupCodes(userId: string): Promise<string[]> {
+    try {
+      const backupCodes = this.generateBackupCodes();
+      const encryptedBackupCodes = await Promise.all(
+        backupCodes.map(code => encryptData(code, this.encryptionKey))
+      );
+
+      await prisma.mFASetup.update({
+        where: { userId },
+        data: {
+          totpBackupCodes: encryptedBackupCodes,
+          recoveryCodesUsed: 0, // Reset used count
+        },
+      });
+
+      await this.logMFAAction(userId, MFAAction.BACKUP_CODES_GENERATED, MFAMethod.BACKUP, true);
+
+      return backupCodes;
+    } catch (error) {
+      console.error('Generate backup codes error:', error);
+      throw new Error('Failed to generate backup codes');
+    }
+  }
+
+  /**
+   * Disable MFA for a user (with proper verification)
+   */
+  async disableMFA(userId: string, verificationCode: string, method: MFAMethod): Promise<boolean> {
+    try {
+      // First verify the code
+      const verification = await this.verifyMFA(userId, verificationCode, method, MFAPurpose.CHANGE_SETTINGS);
+      
+      if (!verification.success) {
+        return false;
+      }
+
+      // Disable MFA
+      await prisma.$transaction(async (tx) => {
+        await tx.mFASetup.update({
+          where: { userId },
+          data: {
+            totpVerified: false,
+            smsEnabled: false,
+            emailEnabled: false,
+            primaryMethod: MFAMethod.NONE,
+            fallbackMethod: MFAMethod.NONE,
+            totpBackupCodes: [],
+            recoveryCodesUsed: 0,
+          },
+        });
+
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            mfaEnabled: false,
+            mfaMethod: MFAMethod.NONE,
+          },
+        });
+
+        // Remove trusted devices
+        await tx.mFADevice.deleteMany({
+          where: { userId },
+        });
+      });
+
+      await this.logMFAAction(userId, MFAAction.TOTP_DISABLED, method, true);
+
+      // Send security notification
+      await notificationService.sendNotification({
+        recipientId: userId,
+        title: '⚠️ Multi-Factor Authentication Disabled',
+        message: 'Two-factor authentication has been disabled for your account. If this was not you, please contact support immediately.',
+        notificationType: 'SECURITY_ALERT',
+        status: 'HIGH',
+        channels: ['IN_APP', 'EMAIL'],
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Disable MFA error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Register a trusted device
+   */
+  async registerDevice(userId: string, deviceInfo: any): Promise<string> {
+    try {
+      const deviceId = this.generateDeviceId(deviceInfo);
+      const fingerprintHash = this.generateDeviceFingerprint(deviceInfo);
+
+      await prisma.mFADevice.create({
+        data: {
+          userId,
+          name: deviceInfo.name || `${deviceInfo.browser} on ${deviceInfo.os}`,
+          deviceType: this.mapDeviceType(deviceInfo.deviceType),
+          deviceId,
+          browser: deviceInfo.browser,
+          os: deviceInfo.os,
+          isMobile: deviceInfo.isMobile || false,
+          trusted: false, // Requires explicit trust
+          lastUsedAt: new Date(),
+          lastIpAddress: deviceInfo.ipAddress,
+          lastLocation: deviceInfo.location,
+          fingerprintHash,
+        },
+      });
+
+      return deviceId;
+    } catch (error) {
+      console.error('Register device error:', error);
+      throw new Error('Failed to register device');
+    }
+  }
+
+  /**
+   * Trust a device (skip MFA for this device)
+   */
+  async trustDevice(userId: string, deviceId: string): Promise<boolean> {
+    try {
+      const result = await prisma.mFADevice.updateMany({
+        where: {
+          userId,
+          deviceId,
+        },
+        data: {
+          trusted: true,
+        },
+      });
+
+      if (result.count > 0) {
+        await this.logMFAAction(userId, MFAAction.DEVICE_TRUSTED, undefined, true);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Trust device error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if device is trusted
+   */
+  async isDeviceTrusted(userId: string, deviceInfo: any): Promise<boolean> {
+    try {
+      const deviceId = this.generateDeviceId(deviceInfo);
+      const fingerprintHash = this.generateDeviceFingerprint(deviceInfo);
+
+      const device = await prisma.mFADevice.findFirst({
+        where: {
+          userId,
+          OR: [
+            { deviceId },
+            { fingerprintHash },
+          ],
+          trusted: true,
+        },
+      });
+
+      return !!device;
+    } catch (error) {
+      console.error('Check trusted device error:', error);
+      return false;
+    }
+  }
+
+  // Private helper methods
+  
+  private async verifyTOTPCode(userId: string, code: string): Promise<boolean> {
+    try {
+      const mfaSetup = await prisma.mFASetup.findUnique({
+        where: { userId },
+      });
+
+      if (!mfaSetup?.totpSecret) return false;
+
+      const secret = await decryptData(mfaSetup.totpSecret, this.encryptionKey);
+      return authenticator.check(code, secret);
+    } catch (error) {
+      console.error('TOTP verification error:', error);
+      return false;
+    }
+  }
+
+  private async verifyBackupCode(userId: string, code: string): Promise<boolean> {
+    try {
+      const mfaSetup = await prisma.mFASetup.findUnique({
+        where: { userId },
+      });
+
+      if (!mfaSetup?.totpBackupCodes.length) return false;
+
+      // Check each backup code
+      for (let i = 0; i < mfaSetup.totpBackupCodes.length; i++) {
+        const encryptedCode = mfaSetup.totpBackupCodes[i];
+        const decryptedCode = await decryptData(encryptedCode, this.encryptionKey);
+        
+        if (decryptedCode === code) {
+          // Mark this backup code as used by removing it
+          const updatedCodes = [...mfaSetup.totpBackupCodes];
+          updatedCodes.splice(i, 1);
+          
+          await prisma.mFASetup.update({
+            where: { userId },
+            data: {
+              totpBackupCodes: updatedCodes,
+              recoveryCodesUsed: mfaSetup.recoveryCodesUsed + 1,
+              lastRecoveryAt: new Date(),
+            },
+          });
+
+          await this.logMFAAction(userId, MFAAction.BACKUP_CODE_USED, MFAMethod.BACKUP, true);
+          
+          return true;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Backup code verification error:', error);
+      return false;
+    }
+  }
+
+  private async verifySMSCode(userId: string, code: string): Promise<boolean> {
+    // Implementation would depend on SMS service integration
+    // For now, return false as SMS is not implemented
+    return false;
+  }
+
+  private async verifyEmailCode(userId: string, code: string): Promise<boolean> {
+    // Implementation would depend on email verification service
+    // For now, return false as email verification is not implemented
+    return false;
+  }
+
+  private generateBackupCodes(): string[] {
+    const codes: string[] = [];
+    for (let i = 0; i < MFA_CONFIG.BACKUP_CODES.count; i++) {
+      codes.push(this.generateRandomCode(MFA_CONFIG.BACKUP_CODES.length));
+    }
+    return codes;
+  }
+
+  private generateRandomCode(length: number): string {
+    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
+
+  private generateDeviceId(deviceInfo: any): string {
+    const data = `${deviceInfo.userAgent || ''}_${deviceInfo.browser || ''}_${deviceInfo.os || ''}`;
+    return createHash('sha256').update(data).digest('hex').substring(0, 16);
+  }
+
+  private generateDeviceFingerprint(deviceInfo: any): string {
+    const fingerprint = {
+      userAgent: deviceInfo.userAgent,
+      screen: deviceInfo.screen,
+      timezone: deviceInfo.timezone,
+      language: deviceInfo.language,
+      platform: deviceInfo.platform,
+    };
+    return createHash('sha256').update(JSON.stringify(fingerprint)).digest('hex');
+  }
+
+  private mapDeviceType(deviceType?: string): MFADeviceType {
+    switch (deviceType?.toLowerCase()) {
+      case 'mobile':
+        return MFADeviceType.MOBILE_APP;
+      case 'desktop':
+        return MFADeviceType.DESKTOP_APP;
+      case 'browser':
+      default:
+        return MFADeviceType.BROWSER;
+    }
+  }
+
+  private async handleFailedAttempt(userId: string): Promise<void> {
+    try {
+      const mfaSetup = await prisma.mFASetup.findUnique({
+        where: { userId },
+      });
+
+      if (!mfaSetup) return;
+
+      const failedAttempts = mfaSetup.failedAttempts + 1;
+      let lockedUntil: Date | undefined;
+
+      if (failedAttempts >= MFA_CONFIG.RATE_LIMITING.maxAttempts) {
+        lockedUntil = new Date(Date.now() + MFA_CONFIG.RATE_LIMITING.lockoutDuration);
+        await this.logMFAAction(userId, MFAAction.ACCOUNT_LOCKED, undefined, false);
+        
+        // Send security alert
+        await notificationService.sendNotification({
+          recipientId: userId,
+          title: '🚨 Account Temporarily Locked',
+          message: 'Your account has been temporarily locked due to multiple failed MFA attempts.',
+          notificationType: 'SECURITY_ALERT',
+          status: 'HIGH',
+          channels: ['IN_APP', 'EMAIL'],
+        });
+      }
+
+      await prisma.mFASetup.update({
+        where: { userId },
+        data: {
+          failedAttempts,
+          lockedUntil,
+        },
+      });
+    } catch (error) {
+      console.error('Handle failed attempt error:', error);
+    }
+  }
+
+  private async logMFAAction(
+    userId: string,
+    action: MFAAction,
+    method?: MFAMethod,
+    success: boolean,
+    details?: any
+  ): Promise<void> {
+    try {
+      const mfaSetup = await prisma.mFASetup.findUnique({
+        where: { userId },
+      });
+
+      if (mfaSetup) {
+        await prisma.mFAAuditLog.create({
+          data: {
+            userId,
+            mfaSetupId: mfaSetup.id,
+            action,
+            method,
+            success,
+            details: details ? JSON.stringify(details) : undefined,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Log MFA action error:', error);
+    }
+  }
+
+  private async logVerificationAttempt(
+    userId: string,
+    method: MFAMethod,
+    success: boolean,
+    purpose: MFAPurpose,
+    context?: any
+  ): Promise<void> {
+    try {
+      const mfaSetup = await prisma.mFASetup.findUnique({
+        where: { userId },
+      });
+
+      if (mfaSetup) {
+        await prisma.mFAVerificationAttempt.create({
+          data: {
+            userId,
+            mfaSetupId: mfaSetup.id,
+            method,
+            success,
+            purpose,
+            ipAddress: context?.ipAddress,
+            userAgent: context?.userAgent,
+            location: context?.location,
+            sessionId: context?.sessionId,
+            riskScore: context?.riskScore,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Log verification attempt error:', error);
+    }
+  }
+}
+
+export default new MFAService();

@@ -1,0 +1,2984 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                         String                      @id @default(cuid())
+  clerkUserId                String                      @unique
+  email                      String                      @unique
+  firstName                  String
+  lastName                   String
+  phone                      String
+  isVerified                 Boolean                     @default(false)
+  mfaEnabled                 Boolean                     @default(false)
+  mfaSecret                  String?
+  mfaBackupCodes             String[]                    @default([])
+  mfaLastUsedAt              DateTime?
+  mfaPhoneVerified           Boolean                     @default(false)
+  mfaEmailVerified           Boolean                     @default(false)
+  bio                        String?
+  profileImageUrl            String?
+  lastActiveAt               DateTime                    @default(now())
+  timezone                   String                      @default("UTC")
+  preferredLanguage          String                      @default("en")
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+  role                       UserRole                    @default(CLIENT)
+  mfaMethod                  MFAMethod                   @default(NONE)
+  profileCompletionScore     Int                         @default(0)
+  profileImageThumbnail      String?
+  emailVerified              Boolean                     @default(false)
+  phoneVerified              Boolean                     @default(false)
+  appointments               Appointment[]
+  initiatedAuditLogs         CommunicationAuditLog[]     @relation("InitiatedAuditLogs")
+  targetAuditLogs            CommunicationAuditLog[]     @relation("TargetAuditLogs")
+  communicationSettings      CommunicationSettings?      @relation("UserCommunicationSettings")
+  clientConversations        Conversation[]              @relation("ClientConversations")
+  lawyerConversations        Conversation[]              @relation("LawyerConversations")
+  authoredComments           DocumentComment[]           @relation("CommentAuthor")
+  resolvedComments           DocumentComment[]           @relation("CommentResolver")
+  createdFolders             DocumentFolder[]            @relation("CreatedFolders")
+  ownedFolders               DocumentFolder[]            @relation("OwnedFolders")
+  revokedShares              DocumentShare[]             @relation("ShareRevoker")
+  sharedDocuments            DocumentShare[]             @relation("SharedByUser")
+  receivedShares             DocumentShare[]             @relation("SharedWithUser")
+  signedDocuments            DocumentSignature[]         @relation("DocumentSigner")
+  approvedTemplates          DocumentTemplate[]          @relation("ApprovedTemplates")
+  createdTemplates           DocumentTemplate[]          @relation("CreatedTemplates")
+  changedDocumentVersions    DocumentVersion[]           @relation("DocumentVersionChanger")
+  createdDocuments           Document[]                  @relation("CreatedDocuments")
+  accessedDocuments          Document[]                  @relation("AccessedDocuments")
+  lockedDocuments            Document[]                  @relation("LockedDocuments")
+  ownedDocuments             Document[]                  @relation("OwnedDocuments")
+  eventTracking              EventTracking[]
+  featureUsage               FeatureUsage[]
+  deletedFiles               FileShare[]                 @relation("DeletedFiles")
+  uploadedFiles              FileShare[]                 @relation("UploadedFiles")
+  generatedDocuments         GeneratedDocument[]
+  lawyerProfile              LawyerProfile?
+  deletedMessages            Message[]                   @relation("DeletedMessages")
+  moderatedMessages          Message[]                   @relation("ModeratedMessages")
+  readMessages               Message[]                   @relation("ReadMessages")
+  sentMessages               Message[]                   @relation("SentMessages")
+  approvedCampaigns          NotificationCampaign[]      @relation("ApprovedCampaigns")
+  createdCampaigns           NotificationCampaign[]      @relation("CreatedCampaigns")
+  pausedCampaigns            NotificationCampaign[]      @relation("PausedCampaigns")
+  optedOutNotifications      NotificationOptOut[]        @relation("OptedOutNotifications")
+  notificationPrefs          NotificationPreferences?    @relation("NotificationPreferences")
+  approvedNotifTemplates     NotificationTemplate[]      @relation("ApprovedNotificationTemplates")
+  createdWebhooks            NotificationWebhook[]       @relation("CreatedWebhooks")
+  receivedNotifications      Notification[]              @relation("ReceivedNotifications")
+  sentNotifications          Notification[]              @relation("SentNotifications")
+  recommendationInteractions RecommendationInteraction[] @relation("UserRecommendationInteractions")
+  reviewFlags                ReviewFlag[]                @relation("ReviewFlagger")
+  reviewHelpfulness          ReviewHelpfulness[]         @relation("ReviewHelpfulness")
+  reviews                    Review[]
+  savedSearches              SavedSearch[]               @relation("UserSavedSearches")
+  searchAlerts               SearchAlert[]               @relation("UserSearchAlerts")
+  searchFolders              SearchFolder[]              @relation("UserSearchFolders")
+  searchInteractions         SearchInteraction[]         @relation("UserSearchInteractions")
+  searches                   SearchQuery[]               @relation("UserSearches")
+  recommendations            SearchRecommendation[]      @relation("UserRecommendations")
+  acknowledgedAlerts         SystemAlerts[]              @relation("AlertAcknowledgedBy")
+  resolvedAlerts             SystemAlerts[]              @relation("AlertResolvedBy")
+  userJourneys               UserJourneys[]
+  preferences                UserPreferences?
+  presence                   UserPresence?               @relation("UserPresence")
+  privacySettings            UserPrivacySettings?
+  hostedVideoRooms           VideoRoom[]                 @relation("HostedVideoRooms")
+
+  @@map("users")
+}
+
+model LawyerProfile {
+  id                             String                 @id @default(cuid())
+  userId                         String                 @unique
+  licenseNumber                  String                 @unique
+  practiceAreas                  String[]
+  experience                     Int
+  hourlyRate                     Float
+  bio                            String?
+  isVerified                     Boolean                @default(false)
+  rating                         Float?
+  totalReviews                   Int                    @default(0)
+  verificationSubmittedAt        DateTime?
+  verificationCompletedAt        DateTime?
+  verificationNotes              String?
+  createdAt                      DateTime               @default(now())
+  updatedAt                      DateTime               @updatedAt
+  verificationStatus             VerificationStatus     @default(PENDING)
+  advanceBookingDays             Int                    @default(30)
+  barAdmissionDate               DateTime?
+  barAdmissionState              String?
+  cancellationPolicy             String?
+  consultationTypes              Json?
+  educationBackground            Json?
+  insurancePolicyNumber          String?
+  insuranceProvider              String?
+  languagesSpoken                Json?
+  maximumConsultationDuration    Int                    @default(180)
+  minimumConsultationDuration    Int                    @default(30)
+  professionalAchievements       Json?
+  professionalLiabilityInsurance Boolean                @default(false)
+  specialCertifications          Json?
+  timezone                       String                 @default("UTC")
+  appointments                   Appointment[]
+  availabilitySlots              AvailabilitySlot[]
+  bookingPolicy                  BookingPolicy?
+  consultationTemplates          ConsultationTemplate[]
+  availability                   LawyerAvailability[]
+  user                           User                   @relation(fields: [userId], references: [id])
+  searchRankings                 LawyerSearchRank?      @relation("SearchRankings")
+  unavailability                 LawyerUnavailability[]
+  payouts                        Payout[]
+  reviewDisputes                 ReviewDispute[]        @relation("LawyerDisputes")
+  reviewResponses                ReviewResponse[]
+  verificationDocuments          VerificationDocument[]
+  reviewStats                    LawyerReviewStats?
+
+  @@map("lawyer_profiles")
+}
+
+model LawyerReviewStats {
+  lawyerId                   String   @id
+  averageRating              Float    @default(0)
+  reviewCount                Int      @default(0)
+  ratingDistribution         Json     @default("{}")
+  verifiedReviewCount        Int      @default(0)
+  recommendationRate         Float    @default(0)
+  reviewsWithResponses       Int      @default(0)
+  averageResponseTime        Float    @default(0)
+  averageSentimentScore      Float    @default(0)
+  averageContentQualityScore Float    @default(0)
+  highQualityReviewCount     Int      @default(0)
+  sentimentBreakdown         Json     @default("{}")
+  dimensionalAverages        Json     @default("{}")
+  lastComputedAt             DateTime @default(now())
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  lawyer LawyerProfile @relation(fields: [lawyerId], references: [id])
+
+  @@map("lawyer_review_stats")
+}
+
+model Appointment {
+  id                      String                   @id @default(cuid())
+  clientId                String
+  lawyerId                String
+  startTime               DateTime
+  endTime                 DateTime
+  status                  AppointmentStatus        @default(PENDING)
+  consultationType        ConsultationType         @default(VIDEO)
+  consultationDuration    Int
+  meetingLink             String?
+  meetingRoom             String?
+  location                String?
+  baseAmount              Float
+  platformFee             Float
+  additionalFees          Json?
+  totalAmount             Float
+  currency                String                   @default("USD")
+  paymentStatus           PaymentStatus            @default(PENDING)
+  paymentAuthorizationId  String?
+  paymentCaptureId        String?
+  paymentMethod           String?
+  timeZone                String
+  clientTimeZone          String?
+  lawyerTimeZone          String?
+  bufferTimeBefore        Int                      @default(15)
+  bufferTimeAfter         Int                      @default(15)
+  preparationRequired     Boolean                  @default(false)
+  preparationCompleted    Boolean                  @default(false)
+  documentsSent           Boolean                  @default(false)
+  remindersSent           Json?
+  consultationStartedAt   DateTime?
+  consultationEndedAt     DateTime?
+  actualDuration          Int?
+  noShowStatus            NoShowStatus?
+  cancellationReason      String?
+  cancelledAt             DateTime?
+  cancelledBy             String?
+  refundAmount            Float?
+  refundStatus            RefundStatus?
+  rescheduleCount         Int                      @default(0)
+  originalAppointmentId   String?
+  clientNotes             String?
+  lawyerNotes             String?
+  internalNotes           String?
+  followUpRequired        Boolean                  @default(false)
+  consultationSummary     Json?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  client                  User                     @relation(fields: [clientId], references: [id])
+  lawyer                  LawyerProfile            @relation(fields: [lawyerId], references: [id])
+  originalAppointment     Appointment?             @relation("AppointmentReschedule", fields: [originalAppointmentId], references: [id])
+  rescheduledAppointments Appointment[]            @relation("AppointmentReschedule")
+  preparation             ConsultationPreparation?
+  conversations           Conversation[]
+  disputes                Dispute[]
+  folders                 DocumentFolder[]
+  payment                 Payment?
+  payoutItems             PayoutItem[]
+  reviews                 Review[]
+  videoRecordings         VideoRecording[]
+  videoRooms              VideoRoom[]
+
+  @@index([lawyerId, startTime])
+  @@index([clientId, startTime])
+  @@index([status, startTime])
+  @@map("appointments")
+}
+
+model Review {
+  id                    String              @id @default(cuid())
+  clientId              String
+  lawyerId              String
+  createdAt             DateTime            @default(now())
+  appointmentId         String
+  autoModerationFlags   Json                @default("{}")
+  caseCategory          String?
+  communicationRating   Int?
+  consultationType      String?
+  contentQualityScore   Float               @default(0.0)
+  disputeResolution     String?
+  editCount             Int                 @default(0)
+  expertiseRating       Int?
+  helpfulVotes          Int                 @default(0)
+  ipAddress             String?
+  isDisputed            Boolean             @default(false)
+  isHighQuality         Boolean             @default(false)
+  isPinned              Boolean             @default(false)
+  isPromoted            Boolean             @default(false)
+  isPublic              Boolean             @default(true)
+  isVerified            Boolean             @default(false)
+  lastEditedAt          DateTime?
+  moderatedAt           DateTime?
+  moderatedBy           String?
+  moderationNotes       String?
+  moderationStatus      String              @default("pending")
+  originalContent       String?
+  overallRating         Int
+  professionalismRating Int?
+  publishedAt           DateTime?
+  recommendsLawyer      Boolean?
+  responsivenessRating  Int?
+  reviewLength          Int                 @default(0)
+  reviewMetadata        Json                @default("{}")
+  reviewText            String?
+  reviewTitle           String?
+  sentimentScore        Float               @default(0.0)
+  status                String              @default("pending")
+  totalVotes            Int                 @default(0)
+  unhelpfulVotes        Int                 @default(0)
+  updatedAt             DateTime            @updatedAt
+  userAgent             String?
+  valueRating           Int?
+  verificationMethod    String?
+  verificationScore     Float               @default(0.0)
+  viewCount             Int                 @default(0)
+  disputes              ReviewDispute[]
+  flags                 ReviewFlag[]
+  helpfulness           ReviewHelpfulness[]
+  responses             ReviewResponse[]
+  appointment           Appointment         @relation(fields: [appointmentId], references: [id])
+  client                User                @relation(fields: [clientId], references: [id])
+
+  @@index([lawyerId, status, publishedAt])
+  @@index([clientId, createdAt])
+  @@index([appointmentId])
+  @@index([moderationStatus, createdAt])
+  @@index([isVerified, verificationScore])
+  @@map("reviews")
+}
+
+model ReviewResponse {
+  id                   String        @id @default(cuid())
+  reviewId             String
+  lawyerId             String
+  responseText         String
+  responseLength       Int           @default(0)
+  responseType         String        @default("standard")
+  responseTone         String?
+  status               String        @default("pending")
+  moderationStatus     String        @default("pending")
+  moderatedBy          String?
+  moderatedAt          DateTime?
+  moderationNotes      String?
+  isHelpful            Boolean       @default(false)
+  helpfulVotes         Int           @default(0)
+  responseQualityScore Float         @default(0.0)
+  publishedAt          DateTime?
+  isPublic             Boolean       @default(true)
+  editCount            Int           @default(0)
+  lastEditedAt         DateTime?
+  originalResponse     String?
+  viewCount            Int           @default(0)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  lawyer               LawyerProfile @relation(fields: [lawyerId], references: [id])
+  review               Review        @relation(fields: [reviewId], references: [id])
+
+  @@index([reviewId, publishedAt])
+  @@index([lawyerId, status])
+  @@map("review_responses")
+}
+
+model ReviewFlag {
+  id                   String    @id @default(cuid())
+  reviewId             String
+  flaggerId            String
+  flagReason           String
+  flagDescription      String?
+  evidenceUrls         Json      @default("[]")
+  additionalContext    String?
+  status               String    @default("pending")
+  investigatedBy       String?
+  investigatedAt       DateTime?
+  investigationNotes   String?
+  resolution           String?
+  isValidFlag          Boolean?
+  flagQualityScore     Float     @default(0.0)
+  flaggerNotified      Boolean   @default(false)
+  reviewAuthorNotified Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  flagger              User      @relation("ReviewFlagger", fields: [flaggerId], references: [id])
+  review               Review    @relation(fields: [reviewId], references: [id])
+
+  @@index([reviewId, status])
+  @@index([flaggerId, createdAt])
+  @@map("review_flags")
+}
+
+model ReviewHelpfulness {
+  id              String   @id @default(cuid())
+  reviewId        String
+  userId          String
+  isHelpful       Boolean
+  voteWeight      Float    @default(1.0)
+  voterType       String?
+  hasBookedLawyer Boolean  @default(false)
+  userAgent       String?
+  ipAddress       String?
+  createdAt       DateTime @default(now())
+  review          Review   @relation(fields: [reviewId], references: [id])
+  user            User     @relation("ReviewHelpfulness", fields: [userId], references: [id])
+
+  @@unique([reviewId, userId])
+  @@index([reviewId, isHelpful])
+  @@map("review_helpfulness")
+}
+
+model ReviewDispute {
+  id                     String        @id @default(cuid())
+  reviewId               String
+  lawyerId               String
+  disputeReason          String
+  disputeDescription     String
+  evidenceDocuments      Json          @default("[]")
+  witnessStatements      String?
+  additionalEvidence     Json          @default("{}")
+  status                 String        @default("submitted")
+  assignedInvestigator   String?
+  investigationStarted   DateTime?
+  investigationCompleted DateTime?
+  investigationNotes     String?
+  resolution             String?
+  resolutionReason       String?
+  resolutionNotes        String?
+  resolvedBy             String?
+  resolvedAt             DateTime?
+  isAppealed             Boolean       @default(false)
+  appealReason           String?
+  appealedAt             DateTime?
+  appealResolution       String?
+  reviewModified         Boolean       @default(false)
+  reviewRemoved          Boolean       @default(false)
+  compensationOffered    Boolean       @default(false)
+  responseDeadline       DateTime?
+  resolutionDeadline     DateTime?
+  isOverdue              Boolean       @default(false)
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  lawyer                 LawyerProfile @relation("LawyerDisputes", fields: [lawyerId], references: [id])
+  review                 Review        @relation(fields: [reviewId], references: [id])
+
+  @@index([lawyerId, status])
+  @@index([status, investigationStarted])
+  @@map("review_disputes")
+}
+
+model UserPreferences {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  emailNotifications   Boolean  @default(true)
+  smsNotifications     Boolean  @default(false)
+  pushNotifications    Boolean  @default(true)
+  marketingEmails      Boolean  @default(false)
+  appointmentReminders Boolean  @default(true)
+  messageNotifications Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model UserPrivacySettings {
+  id                        String   @id @default(cuid())
+  userId                    String   @unique
+  profileVisibility         String   @default("public")
+  showEmail                 Boolean  @default(false)
+  showPhone                 Boolean  @default(false)
+  allowSearchEngineIndexing Boolean  @default(true)
+  showInDirectory           Boolean  @default(true)
+  allowDirectMessages       Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_privacy_settings")
+}
+
+model VerificationDocument {
+  id                 String                   @id @default(cuid())
+  lawyerId           String
+  documentType       VerificationDocumentType
+  fileName           String
+  fileUrl            String
+  fileSize           Int
+  mimeType           String
+  uploadedAt         DateTime                 @default(now())
+  verificationStatus String                   @default("pending")
+  verifierNotes      String?
+  verifiedAt         DateTime?
+  verifiedBy         String?
+  expirationDate     DateTime?
+  isRequired         Boolean                  @default(true)
+  lawyer             LawyerProfile            @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+
+  @@index([lawyerId, verificationStatus])
+  @@map("verification_documents")
+}
+
+model PracticeArea {
+  id                String         @id @default(cuid())
+  name              String         @unique
+  slug              String         @unique
+  description       String?
+  parentId          String?
+  isActive          Boolean        @default(true)
+  sortOrder         Int            @default(0)
+  demandLevel       String         @default("medium")
+  averageHourlyRate Float?
+  totalLawyers      Int            @default(0)
+  createdAt         DateTime       @default(now())
+  parent            PracticeArea?  @relation("PracticeAreaHierarchy", fields: [parentId], references: [id])
+  children          PracticeArea[] @relation("PracticeAreaHierarchy")
+
+  @@index([parentId, sortOrder])
+  @@map("practice_areas")
+}
+
+model LawyerAvailability {
+  id             String        @id @default(cuid())
+  lawyerId       String
+  dayOfWeek      Int
+  startTime      String
+  endTime        String
+  isAvailable    Boolean       @default(true)
+  effectiveFrom  DateTime?
+  effectiveUntil DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  lawyer         LawyerProfile @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+
+  @@unique([lawyerId, dayOfWeek, startTime, endTime])
+  @@map("lawyer_availability")
+}
+
+model LawyerUnavailability {
+  id                String        @id @default(cuid())
+  lawyerId          String
+  startDate         DateTime
+  endDate           DateTime
+  startTime         String?
+  endTime           String?
+  reason            String?
+  description       String?
+  isRecurring       Boolean       @default(false)
+  recurrencePattern Json?
+  createdAt         DateTime      @default(now())
+  lawyer            LawyerProfile @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+
+  @@index([lawyerId, startDate, endDate])
+  @@map("lawyer_unavailability")
+}
+
+model AvailabilitySlot {
+  id                    String           @id @default(cuid())
+  lawyerId              String
+  date                  DateTime         @db.Date
+  startTime             DateTime
+  endTime               DateTime
+  slotDurationMinutes   Int
+  consultationType      ConsultationType
+  isAvailable           Boolean          @default(true)
+  isBlocked             Boolean          @default(false)
+  blockReason           String?
+  maxConcurrentBookings Int              @default(1)
+  currentBookings       Int              @default(0)
+  basePrice             Float
+  dynamicPricing        Json?
+  generatedAt           DateTime         @default(now())
+  expiresAt             DateTime?
+  lawyer                LawyerProfile    @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+
+  @@unique([lawyerId, date, startTime, consultationType])
+  @@index([lawyerId, date, isAvailable])
+  @@index([date, isAvailable])
+  @@map("availability_slots")
+}
+
+model BookingPolicy {
+  id                        String        @id @default(cuid())
+  lawyerId                  String        @unique
+  minAdvanceHours           Int           @default(24)
+  maxAdvanceDays            Int           @default(30)
+  allowSameDayBooking       Boolean       @default(false)
+  sameDayBookingFee         Float         @default(0)
+  freeCancellationHours     Int           @default(24)
+  cancellationFeePercentage Int           @default(50)
+  noCancellationHours       Int           @default(2)
+  freeReschedulingHours     Int           @default(24)
+  maxReschedulingCount      Int           @default(2)
+  reschedulingFee           Float         @default(25)
+  bufferTimeMinutes         Int           @default(15)
+  preparationTimeMinutes    Int           @default(10)
+  followupTimeMinutes       Int           @default(5)
+  requirePaymentUpfront     Boolean       @default(true)
+  allowPartialPayment       Boolean       @default(false)
+  partialPaymentPercentage  Int           @default(50)
+  platformFeePercentage     Float         @default(15.0)
+  minimumPlatformFee        Float         @default(5.0)
+  maximumPlatformFee        Float?
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+  lawyer                    LawyerProfile @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+
+  @@map("booking_policies")
+}
+
+model ConsultationPreparation {
+  id                           String      @id @default(cuid())
+  appointmentId                String      @unique
+  clientPreparationSent        Boolean     @default(false)
+  clientPreparationCompletedAt DateTime?
+  clientDocumentsUploaded      Boolean     @default(false)
+  clientQuestionsSubmitted     Boolean     @default(false)
+  lawyerPreparationSent        Boolean     @default(false)
+  lawyerPreparationCompletedAt DateTime?
+  lawyerNotesAdded             Boolean     @default(false)
+  backgroundResearchCompleted  Boolean     @default(false)
+  preparationChecklist         Json?
+  requiredDocuments            Json?
+  suggestedQuestions           Json?
+  clientResponses              Json?
+  createdAt                    DateTime    @default(now())
+  updatedAt                    DateTime    @updatedAt
+  appointment                  Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@map("consultation_preparation")
+}
+
+model BookingLock {
+  id               String           @id @default(cuid())
+  lawyerId         String
+  startTime        DateTime
+  endTime          DateTime
+  consultationType ConsultationType
+  lockedBy         String
+  lockedAt         DateTime         @default(now())
+  expiresAt        DateTime
+  isActive         Boolean          @default(true)
+
+  @@index([lawyerId, startTime, endTime, isActive])
+  @@index([expiresAt])
+  @@map("booking_locks")
+}
+
+model ConsultationTemplate {
+  id                  String        @id @default(cuid())
+  lawyerId            String
+  name                String
+  practiceArea        String
+  duration            Int
+  basePrice           Float
+  description         String?
+  preparationRequired Boolean       @default(false)
+  documentTypes       Json?
+  questionnaire       Json?
+  isActive            Boolean       @default(true)
+  sortOrder           Int           @default(0)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  lawyer              LawyerProfile @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+
+  @@index([lawyerId, isActive])
+  @@map("consultation_templates")
+}
+
+model Payment {
+  id                    String            @id @default(cuid())
+  appointmentId         String            @unique
+  paymentReference      String            @unique
+  baseAmount            Float
+  platformFee           Float
+  taxes                 Float
+  totalAmount           Float
+  currency              Currency          @default(AZN)
+  status                PaymentStatus     @default(PENDING)
+  provider              PaymentProvider   @default(STRIPE)
+  providerTransactionId String?
+  paymentIntentId       String?
+  paymentMethod         String?
+  lastFourDigits        String?
+  expiryDate            String?
+  authorizedAt          DateTime?
+  capturedAt            DateTime?
+  failedAt              DateTime?
+  refundedAt            DateTime?
+  riskScore             Float?            @default(0)
+  riskLevel             RiskLevel         @default(LOW)
+  riskFactors           Json?
+  ipAddress             String?
+  userAgent             String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  escrow                EscrowRecord?
+  auditLogs             PaymentAuditLog[]
+  appointment           Appointment       @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  refunds               Refund[]
+
+  @@index([status, createdAt])
+  @@index([provider, status])
+  @@index([paymentReference])
+  @@map("payments")
+}
+
+model EscrowRecord {
+  id             String       @id @default(cuid())
+  paymentId      String       @unique
+  totalAmount    Float
+  lawyerAmount   Float
+  platformAmount Float
+  heldAmount     Float
+  releasedAmount Float
+  status         EscrowStatus @default(HELD)
+  heldAt         DateTime     @default(now())
+  releasedAt     DateTime?
+  releaseReason  String?
+  disputeId      String?
+  frozenAt       DateTime?
+  frozenReason   String?
+  autoReleaseAt  DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  dispute        Dispute?     @relation(fields: [disputeId], references: [id])
+  payment        Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([status, heldAt])
+  @@index([autoReleaseAt])
+  @@map("escrow_records")
+}
+
+model Refund {
+  id                 String       @id @default(cuid())
+  paymentId          String
+  refundReference    String       @unique
+  amount             Float
+  reason             String
+  refundType         String
+  status             RefundStatus @default(PENDING)
+  processedAt        DateTime?
+  failureReason      String?
+  providerRefundId   String?
+  expectedSettlement DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  payment            Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([refundReference])
+  @@map("refunds")
+}
+
+model Payout {
+  id               String          @id @default(cuid())
+  lawyerId         String
+  payoutReference  String          @unique
+  grossAmount      Float
+  platformFee      Float
+  taxes            Float
+  netAmount        Float
+  currency         Currency        @default(AZN)
+  periodStart      DateTime
+  periodEnd        DateTime
+  appointmentCount Int             @default(0)
+  status           PayoutStatus    @default(PENDING)
+  requestedAt      DateTime        @default(now())
+  processedAt      DateTime?
+  completedAt      DateTime?
+  failedAt         DateTime?
+  failureReason    String?
+  bankName         String?
+  accountNumber    String?
+  routingNumber    String?
+  iban             String?
+  swiftCode        String?
+  provider         PaymentProvider @default(STRIPE)
+  providerPayoutId String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  payoutItems      PayoutItem[]
+  lawyer           LawyerProfile   @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+
+  @@index([lawyerId, status])
+  @@index([status, requestedAt])
+  @@index([payoutReference])
+  @@map("payouts")
+}
+
+model PayoutItem {
+  id               String           @id @default(cuid())
+  payoutId         String
+  appointmentId    String
+  consultationDate DateTime
+  clientName       String
+  consultationType ConsultationType
+  duration         Int
+  baseAmount       Float
+  platformFee      Float
+  lawyerEarning    Float
+  createdAt        DateTime         @default(now())
+  appointment      Appointment      @relation(fields: [appointmentId], references: [id])
+  payout           Payout           @relation(fields: [payoutId], references: [id], onDelete: Cascade)
+
+  @@index([payoutId])
+  @@index([appointmentId])
+  @@map("payout_items")
+}
+
+model Dispute {
+  id               String         @id @default(cuid())
+  appointmentId    String
+  disputeReference String         @unique
+  type             DisputeType
+  title            String
+  description      String
+  amount           Float
+  initiatedBy      String
+  respondent       String
+  assignedAdmin    String?
+  status           DisputeStatus  @default(OPEN)
+  priority         String         @default("normal")
+  dueDate          DateTime?
+  resolutionType   String?
+  resolutionAmount Float?
+  resolutionNotes  String?
+  resolvedAt       DateTime?
+  resolvedBy       String?
+  evidence         Json?
+  messages         Json?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  appointment      Appointment    @relation(fields: [appointmentId], references: [id])
+  escrowRecords    EscrowRecord[]
+
+  @@index([status, createdAt])
+  @@index([type, status])
+  @@index([disputeReference])
+  @@index([assignedAdmin, status])
+  @@map("disputes")
+}
+
+model PaymentAuditLog {
+  id             String   @id @default(cuid())
+  paymentId      String
+  action         String
+  previousStatus String?
+  newStatus      String?
+  amount         Float?
+  performedBy    String
+  ipAddress      String?
+  userAgent      String?
+  reason         String?
+  beforeState    Json?
+  afterState     Json?
+  createdAt      DateTime @default(now())
+  payment        Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId, createdAt])
+  @@index([action, createdAt])
+  @@map("payment_audit_logs")
+}
+
+model FinancialReport {
+  id                 String   @id @default(cuid())
+  reportType         String
+  reportPeriod       String
+  totalRevenue       Float
+  platformRevenue    Float
+  lawyerPayouts      Float
+  pendingPayouts     Float
+  totalTransactions  Int
+  successfulPayments Int
+  failedPayments     Int
+  refundedPayments   Int
+  activeLawyers      Int
+  activeClients      Int
+  newSignups         Int
+  detailedData       Json
+  generatedAt        DateTime @default(now())
+
+  @@unique([reportType, reportPeriod])
+  @@index([reportType, reportPeriod])
+  @@map("financial_reports")
+}
+
+model ExchangeRate {
+  id           String   @id @default(cuid())
+  fromCurrency Currency
+  toCurrency   Currency
+  rate         Float
+  source       String
+  updatedAt    DateTime @updatedAt
+
+  @@unique([fromCurrency, toCurrency])
+  @@index([updatedAt])
+  @@map("exchange_rates")
+}
+
+model Conversation {
+  id                   String                  @id @default(cuid())
+  appointmentId        String?
+  clientId             String
+  lawyerId             String
+  title                String?                 @db.VarChar(200)
+  status               String                  @default("active")
+  conversationType     String                  @default("consultation")
+  encryptionKeyId      String?                 @db.VarChar(100)
+  isEncrypted          Boolean                 @default(true)
+  lastMessageAt        DateTime?
+  lastActivityAt       DateTime                @default(now())
+  totalMessages        Int                     @default(0)
+  clientUnreadCount    Int                     @default(0)
+  lawyerUnreadCount    Int                     @default(0)
+  allowFileSharing     Boolean                 @default(true)
+  allowVideoCall       Boolean                 @default(true)
+  autoArchiveAfterDays Int                     @default(90)
+  conversationMetadata Json?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  auditLogs            CommunicationAuditLog[] @relation("ConversationAuditLogs")
+  appointment          Appointment?            @relation(fields: [appointmentId], references: [id])
+  client               User                    @relation("ClientConversations", fields: [clientId], references: [id])
+  lawyer               User                    @relation("LawyerConversations", fields: [lawyerId], references: [id])
+  fileShares           FileShare[]
+  messages             Message[]               @relation("ConversationMessages")
+  videoRooms           VideoRoom[]
+  documentShares       DocumentShare[]
+
+  @@index([clientId, status])
+  @@index([lawyerId, status])
+  @@index([appointmentId])
+  @@index([lastActivityAt])
+  @@map("conversations")
+}
+
+model Message {
+  id                 String       @id @default(cuid())
+  conversationId     String
+  senderId           String
+  messageType        MessageType  @default(TEXT)
+  content            String?
+  originalContent    String?
+  attachmentUrl      String?      @db.VarChar(500)
+  attachmentFileName String?      @db.VarChar(255)
+  attachmentFileSize Int?
+  attachmentMimeType String?      @db.VarChar(100)
+  isEncrypted        Boolean      @default(true)
+  encryptionKeyId    String?      @db.VarChar(100)
+  deliveredAt        DateTime?
+  readAt             DateTime?
+  readById           String?
+  parentMessageId    String?
+  threadCount        Int          @default(0)
+  systemMessageType  String?      @db.VarChar(50)
+  systemMessageData  Json?
+  isDeleted          Boolean      @default(false)
+  deletedAt          DateTime?
+  deletedBy          String?
+  isFlagged          Boolean      @default(false)
+  flaggedReason      String?      @db.VarChar(200)
+  moderatedAt        DateTime?
+  moderatedBy        String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  attachedFiles      FileShare[]  @relation("MessageFiles")
+  conversation       Conversation @relation("ConversationMessages", fields: [conversationId], references: [id], onDelete: Cascade)
+  deletedByUser      User?        @relation("DeletedMessages", fields: [deletedBy], references: [id])
+  moderatedByUser    User?        @relation("ModeratedMessages", fields: [moderatedBy], references: [id])
+  parentMessage      Message?     @relation("MessageThread", fields: [parentMessageId], references: [id])
+  replies            Message[]    @relation("MessageThread")
+  readByUser         User?        @relation("ReadMessages", fields: [readById], references: [id])
+  sender             User         @relation("SentMessages", fields: [senderId], references: [id])
+
+  @@index([conversationId, createdAt])
+  @@index([senderId, createdAt])
+  @@index([conversationId, readAt])
+  @@index([messageType, createdAt])
+  @@map("messages")
+}
+
+model VideoRoom {
+  id                   String           @id @default(cuid())
+  appointmentId        String?
+  conversationId       String
+  roomName             String?          @db.VarChar(200)
+  roomId               String           @unique @db.VarChar(100)
+  roomPassword         String?          @db.VarChar(100)
+  hostId               String
+  participantIds       Json?
+  maxParticipants      Int              @default(2)
+  recordingEnabled     Boolean          @default(false)
+  recordingConsent     Json?
+  twilioRoomSid        String?          @db.VarChar(64)
+  waitingRoomEnabled   Boolean          @default(true)
+  screenSharingEnabled Boolean          @default(true)
+  chatEnabled          Boolean          @default(true)
+  status               String           @default("created")
+  startedAt            DateTime?
+  endedAt              DateTime?
+  actualDuration       Int?
+  isPasswordProtected  Boolean          @default(true)
+  allowGuestJoin       Boolean          @default(false)
+  endToEndEncryption   Boolean          @default(true)
+  externalServiceData  Json?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  recordings           VideoRecording[]
+  sessionMetrics      VideoSessionMetric[]
+  sessionKpi          VideoSessionKpi?
+  appointment          Appointment?     @relation(fields: [appointmentId], references: [id])
+  conversation         Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  host                 User             @relation("HostedVideoRooms", fields: [hostId], references: [id])
+
+  @@index([appointmentId])
+  @@index([conversationId])
+  @@index([twilioRoomSid])
+  @@index([status, createdAt])
+  @@index([hostId])
+  @@map("video_rooms")
+}
+
+model VideoRecording {
+  id                    String       @id @default(cuid())
+  roomId                String
+  appointmentId         String?
+  recordingName         String?      @db.VarChar(200)
+  duration              Int?
+  fileSize              BigInt?
+  format                String       @default("mp4") @db.VarChar(20)
+  quality               String       @default("hd") @db.VarChar(20)
+  recordingUrl          String?      @db.VarChar(500)
+  thumbnailUrl          String?      @db.VarChar(500)
+  transcriptUrl         String?      @db.VarChar(500)
+  isEncrypted           Boolean      @default(true)
+  encryptionKeyId       String?      @db.VarChar(100)
+  accessLevel           String       @default("participants") @db.VarChar(20)
+  status                String       @default("processing") @db.VarChar(20)
+  consentRecorded       Boolean      @default(false)
+  consentTimestamp      DateTime?
+  legalHoldExpiry       DateTime?
+  processingStartedAt   DateTime?
+  processingCompletedAt DateTime?
+  processingErrors      String?
+  providerRecordingSid  String?      @db.VarChar(100)
+  lastAccessedAt        DateTime?
+  accessCount           Int          @default(0)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  appointment           Appointment? @relation(fields: [appointmentId], references: [id])
+  videoRoom             VideoRoom    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@index([appointmentId])
+  @@index([status, createdAt])
+  @@map("video_recordings")
+}
+
+model VideoSessionMetric {
+  id                String      @id @default(cuid())
+  roomId            String
+  participantId     String
+  joinedAt          DateTime    @default(now())
+  leftAt            DateTime?
+  joinLatencyMs     Int?
+  audioFallbackUsed Boolean     @default(false)
+  disconnectReason  String?     @db.VarChar(100)
+  reconnectionCount Int         @default(0)
+  networkQuality    Json?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  videoRoom         VideoRoom   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, participantId])
+  @@index([roomId, joinedAt])
+  @@map("video_session_metrics")
+}
+
+model VideoSessionKpi {
+  id                  String     @id @default(cuid())
+  roomId              String     @unique
+  averageJoinTimeMs   Int?
+  dropRate            Float?
+  audioFallbackCount  Int        @default(0)
+  participantCount    Int?
+  computedAt          DateTime   @default(now())
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  videoRoom           VideoRoom  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@map("video_session_kpis")
+}
+
+model FileShare {
+  id               String       @id @default(cuid())
+  conversationId   String
+  messageId        String?
+  uploadedBy       String
+  fileName         String       @db.VarChar(255)
+  originalFileName String       @db.VarChar(255)
+  fileSize         BigInt
+  mimeType         String       @db.VarChar(100)
+  fileHash         String?      @db.VarChar(64)
+  storageUrl       String       @db.VarChar(500)
+  thumbnailUrl     String?      @db.VarChar(500)
+  previewUrl       String?      @db.VarChar(500)
+  isEncrypted      Boolean      @default(true)
+  encryptionKeyId  String?      @db.VarChar(100)
+  virusScanStatus  String       @default("pending") @db.VarChar(20)
+  virusScanDetails Json?
+  downloadCount    Int          @default(0)
+  lastDownloadedAt DateTime?
+  expiresAt        DateTime?
+  status           String       @default("active") @db.VarChar(20)
+  isDeleted        Boolean      @default(false)
+  deletedAt        DateTime?
+  deletedBy        String?
+  fileMetadata     Json?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  deletedByUser    User?        @relation("DeletedFiles", fields: [deletedBy], references: [id])
+  message          Message?     @relation("MessageFiles", fields: [messageId], references: [id])
+  uploader         User         @relation("UploadedFiles", fields: [uploadedBy], references: [id])
+
+  @@index([conversationId, createdAt])
+  @@index([uploadedBy, createdAt])
+  @@index([fileHash])
+  @@index([virusScanStatus])
+  @@map("file_shares")
+}
+
+model CommunicationSettings {
+  id                              String    @id @default(cuid())
+  userId                          String    @unique
+  messageNotifications            Boolean   @default(true)
+  emailNotifications              Boolean   @default(true)
+  pushNotifications               Boolean   @default(true)
+  showOnlineStatus                Boolean   @default(true)
+  showLastSeen                    Boolean   @default(true)
+  allowDirectMessages             Boolean   @default(true)
+  preferredCommunicationMethod    String    @default("chat") @db.VarChar(20)
+  autoAcceptVideoCallsFromClients Boolean   @default(true)
+  autoAcceptVideoCallsFromLawyers Boolean   @default(true)
+  allowRecording                  Boolean   @default(true)
+  shareContactInformation         Boolean   @default(false)
+  allowFileSharing                Boolean   @default(true)
+  workingHours                    Json?
+  timezone                        String    @default("UTC") @db.VarChar(50)
+  doNotDisturbEnabled             Boolean   @default(false)
+  doNotDisturbStart               DateTime?
+  doNotDisturbEnd                 DateTime?
+  messageRetentionDays            Int       @default(365)
+  autoDeleteMessages              Boolean   @default(false)
+  fcmToken                        String?   @db.VarChar(500)
+  fcmTokenUpdatedAt               DateTime?
+  createdAt                       DateTime  @default(now())
+  updatedAt                       DateTime  @updatedAt
+  user                            User      @relation("UserCommunicationSettings", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("communication_settings")
+}
+
+model UserPresence {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  status     String   @default("offline") @db.VarChar(20)
+  lastSeen   DateTime @default(now())
+  isVisible  Boolean  @default(true)
+  deviceInfo Json?
+  ipAddress  String?  @db.VarChar(45)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation("UserPresence", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, updatedAt])
+  @@map("user_presence")
+}
+
+model CommunicationAuditLog {
+  id             String        @id @default(cuid())
+  eventType      String        @db.VarChar(50)
+  eventData      Json?
+  initiatedBy    String
+  targetUserId   String?
+  conversationId String?
+  ipAddress      String?       @db.VarChar(45)
+  userAgent      String?       @db.VarChar(500)
+  deviceInfo     Json?
+  isPrivileged   Boolean       @default(false)
+  retentionDate  DateTime?
+  createdAt      DateTime      @default(now())
+  conversation   Conversation? @relation("ConversationAuditLogs", fields: [conversationId], references: [id])
+  initiator      User          @relation("InitiatedAuditLogs", fields: [initiatedBy], references: [id])
+  targetUser     User?         @relation("TargetAuditLogs", fields: [targetUserId], references: [id])
+
+  @@index([eventType, createdAt])
+  @@index([initiatedBy, createdAt])
+  @@index([conversationId, createdAt])
+  @@index([isPrivileged, createdAt])
+  @@map("communication_audit_logs")
+}
+
+model DocumentFolder {
+  id             String             @id @default(cuid())
+  name           String
+  description    String?
+  parentId       String?
+  path           String
+  depth          Int                @default(0)
+  ownerId        String
+  createdBy      String
+  folderType     DocumentFolderType @default(GENERAL)
+  appointmentId  String?
+  caseNumber     String?
+  color          String?
+  icon           String?
+  customMetadata Json?
+  isPrivate      Boolean            @default(false)
+  securityLevel  SecurityLevel      @default(STANDARD)
+  documentCount  Int                @default(0)
+  totalSize      BigInt             @default(0)
+  isActive       Boolean            @default(true)
+  isArchived     Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  appointment    Appointment?       @relation(fields: [appointmentId], references: [id])
+  creator        User               @relation("CreatedFolders", fields: [createdBy], references: [id])
+  owner          User               @relation("OwnedFolders", fields: [ownerId], references: [id])
+  parent         DocumentFolder?    @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children       DocumentFolder[]   @relation("FolderHierarchy")
+  documents      Document[]
+
+  @@index([ownerId, isActive])
+  @@index([parentId, name])
+  @@index([folderType, isActive])
+  @@map("document_folders")
+}
+
+model Document {
+  id                     String              @id @default(cuid())
+  fileName               String
+  originalFileName       String
+  fileSize               BigInt
+  mimeType               String
+  fileExtension          String
+  documentType           DocumentType
+  category               DocumentCategory
+  practiceArea           String?
+  ownerId                String
+  createdBy              String
+  folderId               String?
+  storageUrl             String
+  thumbnailUrl           String?
+  previewUrl             String?
+  title                  String
+  description            String?
+  tags                   Json?
+  extractedText          String?
+  documentMetadata       Json?
+  isEncrypted            Boolean             @default(true)
+  encryptionKeyId        String?
+  securityLevel          SecurityLevel       @default(STANDARD)
+  currentVersion         Int                 @default(1)
+  isLatestVersion        Boolean             @default(true)
+  parentDocumentId       String?
+  status                 DocumentStatus      @default(ACTIVE)
+  workflowStatus         WorkflowStatus      @default(DRAFT)
+  isCollaborative        Boolean             @default(false)
+  collaborationSessionId String?
+  lockStatus             LockStatus          @default(UNLOCKED)
+  lockedBy               String?
+  lockedAt               DateTime?
+  isPrivileged           Boolean             @default(false)
+  retentionPolicy        RetentionPolicy     @default(STANDARD)
+  retentionExpiry        DateTime?
+  isUnderLegalHold       Boolean             @default(false)
+  accessCount            Int                 @default(0)
+  lastAccessedAt         DateTime?
+  lastAccessedBy         String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  archivedAt             DateTime?
+  deletedAt              DateTime?
+  comments               DocumentComment[]
+  shares                 DocumentShare[]
+  signatures             DocumentSignature[]
+  versionHistory         DocumentVersion[]
+  creator                User                @relation("CreatedDocuments", fields: [createdBy], references: [id])
+  folder                 DocumentFolder?     @relation(fields: [folderId], references: [id])
+  lastAccessedUser       User?               @relation("AccessedDocuments", fields: [lastAccessedBy], references: [id])
+  lockedByUser           User?               @relation("LockedDocuments", fields: [lockedBy], references: [id])
+  owner                  User                @relation("OwnedDocuments", fields: [ownerId], references: [id])
+  parentDocument         Document?           @relation("DocumentVersions", fields: [parentDocumentId], references: [id])
+  versions               Document[]          @relation("DocumentVersions")
+  generatedFrom          GeneratedDocument[] @relation("GeneratedFromTemplate")
+  signatureAuditLogs     DocumentSignatureAuditLog[]
+
+  @@index([ownerId, status])
+  @@index([folderId, createdAt])
+  @@index([documentType, category])
+  @@index([isPrivileged, securityLevel])
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id                String     @id @default(cuid())
+  documentId        String
+  versionNumber     Int
+  versionLabel      String?
+  versionNotes      String?
+  fileName          String
+  fileSize          BigInt
+  storageUrl        String
+  mimeType          String
+  title             String?
+  extractedText     String?
+  versionMetadata   Json?
+  changeType        ChangeType @default(MODIFICATION)
+  changedBy         String
+  changeDescription String?
+  diffFromPrevious  Json?
+  isActive          Boolean    @default(true)
+  createdAt         DateTime   @default(now())
+  changedByUser     User       @relation("DocumentVersionChanger", fields: [changedBy], references: [id])
+  document          Document   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, versionNumber])
+  @@index([documentId, versionNumber])
+  @@map("document_versions")
+}
+
+model DocumentShare {
+  id                         String      @id @default(cuid())
+  documentId                 String
+  sharedBy                   String
+  sharedWith                 String?
+  sharedWithEmail            String?
+  shareType                  ShareType   @default(DIRECT)
+  accessLevel                AccessLevel @default(READ)
+  shareToken                 String?     @unique
+  requiresPassword           Boolean     @default(false)
+  sharePassword              String?
+  expiresAt                  DateTime?
+  maxAccessCount             Int?
+  currentAccessCount         Int         @default(0)
+  canDownload                Boolean     @default(true)
+  canPrint                   Boolean     @default(true)
+  canCopy                    Boolean     @default(true)
+  canShare                   Boolean     @default(false)
+  notifyOnAccess             Boolean     @default(false)
+  lastAccessNotificationSent DateTime?
+  isActive                   Boolean     @default(true)
+  firstAccessedAt            DateTime?
+  lastAccessedAt             DateTime?
+  lastAccessedBy             String?
+  conversationId             String?
+  createdAt                  DateTime    @default(now())
+  revokedAt                  DateTime?
+  revokedBy                  String?
+  document                   Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  revoker                    User?       @relation("ShareRevoker", fields: [revokedBy], references: [id])
+  sharer                     User        @relation("SharedByUser", fields: [sharedBy], references: [id])
+  recipient                  User?       @relation("SharedWithUser", fields: [sharedWith], references: [id])
+  conversation               Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, isActive])
+  @@index([sharedWith, isActive])
+  @@index([conversationId, isActive])
+  @@index([shareToken])
+  @@map("document_shares")
+}
+
+model DocumentComment {
+  id              String            @id @default(cuid())
+  documentId      String
+  parentCommentId String?
+  threadId        String?
+  content         String
+  commentType     CommentType       @default(GENERAL)
+  authorId        String
+  authorName      String
+  pageNumber      Int?
+  position        Json?
+  selectedText    String?
+  status          CommentStatus     @default(ACTIVE)
+  resolvedBy      String?
+  resolvedAt      DateTime?
+  mentionedUsers  Json?
+  isPrivate       Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  deletedAt       DateTime?
+  author          User              @relation("CommentAuthor", fields: [authorId], references: [id])
+  document        Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  parentComment   DocumentComment?  @relation("CommentReplies", fields: [parentCommentId], references: [id])
+  replies         DocumentComment[] @relation("CommentReplies")
+  resolver        User?             @relation("CommentResolver", fields: [resolvedBy], references: [id])
+
+  @@index([documentId, createdAt])
+  @@index([threadId, createdAt])
+  @@index([authorId, createdAt])
+  @@map("document_comments")
+}
+
+model DocumentTemplate {
+  id                 String              @id @default(cuid())
+  name               String
+  description        String?
+  category           TemplateCategory
+  practiceArea       String?
+  templateContent    String
+  templateVariables  Json
+  sampleData         Json?
+  createdBy          String
+  isPublic           Boolean             @default(false)
+  isPremium          Boolean             @default(false)
+  templateFileUrl    String?
+  previewImageUrl    String?
+  usageCount         Int                 @default(0)
+  averageRating      Decimal             @default(0.0)
+  ratingCount        Int                 @default(0)
+  version            String              @default("1.0")
+  parentTemplateId   String?
+  status             TemplateStatus      @default(ACTIVE)
+  isApproved         Boolean             @default(false)
+  approvedBy         String?
+  approvedAt         DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  approver           User?               @relation("ApprovedTemplates", fields: [approvedBy], references: [id])
+  creator            User                @relation("CreatedTemplates", fields: [createdBy], references: [id])
+  parentTemplate     DocumentTemplate?   @relation("TemplateVersions", fields: [parentTemplateId], references: [id])
+  childTemplates     DocumentTemplate[]  @relation("TemplateVersions")
+  generatedDocuments GeneratedDocument[]
+
+  @@index([category, practiceArea, isPublic])
+  @@index([usageCount, averageRating])
+  @@index([isApproved, status])
+  @@map("document_templates")
+}
+
+model DocumentSignature {
+  id                           String                     @id @default(cuid())
+  documentId                   String
+  workflowId                   String
+  signatureOrder               Int                        @default(1)
+  workflowStatus               SignatureWorkflowStatus    @default(PENDING)
+  signerId                     String?
+  signerEmail                  String
+  signerName                   String
+  signerRole                   String?
+  signatureType                SignatureType              @default(ELECTRONIC)
+  isRequired                   Boolean                    @default(true)
+  requiresIdentityVerification Boolean                    @default(false)
+  signatureImageUrl            String?
+  signatureCertificateUrl      String?
+  signedAt                     DateTime?
+  signatureIpAddress           String?
+  signatureUserAgent           String?
+  signatureLocation            Json?
+  signaturePosition            Json?
+  signatureFields              Json?
+  identityVerificationStatus   IdentityVerificationStatus @default(NOT_REQUIRED)
+  identityVerificationData     Json?
+  twoFactorVerified            Boolean                    @default(false)
+  invitationToken              String?                    @unique
+  invitedAt                    DateTime?
+  invitationExpiresAt          DateTime?
+  remindersSent                Int                        @default(0)
+  lastReminderSent             DateTime?
+  status                       SignatureStatus            @default(PENDING)
+  viewedAt                     DateTime?
+  declinedAt                   DateTime?
+  declineReason                String?
+  createdAt                    DateTime                   @default(now())
+  updatedAt                    DateTime                   @updatedAt
+  document                     Document                   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  signer                       User?                      @relation("DocumentSigner", fields: [signerId], references: [id])
+  auditLogs                    DocumentSignatureAuditLog[]
+
+  @@index([documentId, workflowId])
+  @@index([signerEmail, status])
+  @@index([invitationToken])
+  @@map("document_signatures")
+}
+
+model DocumentSignatureAuditLog {
+  id               String                         @id @default(cuid())
+  documentId       String
+  signatureId      String?
+  workflowId       String
+  eventType        DocumentSignatureAuditEvent
+  eventDescription String?
+  performedBy      String?
+  performedByEmail String?
+  performedByName  String?
+  ipAddress        String?
+  userAgent        String?
+  metadata         Json?
+  createdAt        DateTime                       @default(now())
+  document         Document                       @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  signature        DocumentSignature?             @relation(fields: [signatureId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId, createdAt])
+  @@index([documentId, createdAt])
+  @@map("document_signature_audit_logs")
+}
+
+model GeneratedDocument {
+  id           String           @id @default(cuid())
+  templateId   String
+  documentId   String
+  generatedBy  String
+  variableData Json
+  createdAt    DateTime         @default(now())
+  document     Document         @relation("GeneratedFromTemplate", fields: [documentId], references: [id])
+  generator    User             @relation(fields: [generatedBy], references: [id])
+  template     DocumentTemplate @relation(fields: [templateId], references: [id])
+
+  @@map("generated_documents")
+}
+
+model Notification {
+  id                  String                    @id @default(cuid())
+  recipientId         String
+  recipientEmail      String?
+  recipientPhone      String?
+  recipientName       String?
+  senderId            String?
+  senderName          String?
+  senderType          String                    @default("system")
+  title               String
+  message             String
+  richContent         Json?
+  notificationType    NotificationType
+  category            NotificationCategory      @default(SYSTEM)
+  priority            NotificationPriority      @default(NORMAL)
+  channels            Json
+  preferredChannel    NotificationChannel?
+  status              NotificationStatus        @default(PENDING)
+  emailStatus         DeliveryStatus            @default(NOT_SENT)
+  emailSentAt         DateTime?
+  emailDeliveredAt    DateTime?
+  emailOpenedAt       DateTime?
+  emailClickedAt      DateTime?
+  emailBounced        Boolean                   @default(false)
+  emailBounceReason   String?
+  smsStatus           DeliveryStatus            @default(NOT_SENT)
+  smsSentAt           DateTime?
+  smsDeliveredAt      DateTime?
+  smsFailedReason     String?
+  pushStatus          DeliveryStatus            @default(NOT_SENT)
+  pushSentAt          DateTime?
+  pushDeliveredAt     DateTime?
+  pushOpenedAt        DateTime?
+  pushFailedReason    String?
+  inAppStatus         DeliveryStatus            @default(NOT_SENT)
+  inAppDisplayedAt    DateTime?
+  isRead              Boolean                   @default(false)
+  readAt              DateTime?
+  hasActions          Boolean                   @default(false)
+  actionData          Json?
+  interactionCount    Int                       @default(0)
+  lastInteraction     DateTime?
+  scheduledFor        DateTime?
+  delayedUntil        DateTime?
+  templateId          String?
+  templateVariables   Json?
+  retryCount          Int                       @default(0)
+  maxRetries          Int                       @default(3)
+  nextRetryAt         DateTime?
+  lastError           String?
+  expiresAt           DateTime?
+  isExpired           Boolean                   @default(false)
+  groupId             String?
+  campaignId          String?
+  respectQuietHours   Boolean                   @default(true)
+  overridePreferences Boolean                   @default(false)
+  urgentOverride      Boolean                   @default(false)
+  optOutToken         String?                   @unique
+  trackingPixelId     String?                   @unique
+  contextType         String?
+  contextId           String?
+  metadata            Json?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  deletedAt           DateTime?
+  deliveryLogs        NotificationDeliveryLog[] @relation("DeliveryLogs")
+  queue               NotificationQueue?        @relation("QueuedNotification")
+  campaign            NotificationCampaign?     @relation(fields: [campaignId], references: [id])
+  recipient           User                      @relation("ReceivedNotifications", fields: [recipientId], references: [id])
+  sender              User?                     @relation("SentNotifications", fields: [senderId], references: [id])
+  template            NotificationTemplate?     @relation(fields: [templateId], references: [id])
+
+  @@index([recipientId, isRead, createdAt])
+  @@index([status, scheduledFor])
+  @@index([notificationType, category])
+  @@index([campaignId, status])
+  @@index([contextType, contextId])
+  @@index([optOutToken])
+  @@map("notifications")
+}
+
+model NotificationPreferences {
+  id                       String   @id @default(cuid())
+  userId                   String   @unique
+  enableNotifications      Boolean  @default(true)
+  globalQuietHours         Boolean  @default(false)
+  quietHoursStart          String?  @default("22:00")
+  quietHoursEnd            String?  @default("08:00")
+  timezone                 String   @default("UTC")
+  emailEnabled             Boolean  @default(true)
+  emailDailyDigest         Boolean  @default(true)
+  emailDigestTime          String?  @default("09:00")
+  emailFrequencyLimit      Int      @default(10)
+  smsEnabled               Boolean  @default(false)
+  smsOnlyUrgent            Boolean  @default(true)
+  smsFrequencyLimit        Int      @default(3)
+  pushEnabled              Boolean  @default(true)
+  pushBadgeCount           Boolean  @default(true)
+  pushSounds               Boolean  @default(true)
+  pushVibration            Boolean  @default(true)
+  pushFrequencyLimit       Int      @default(20)
+  inAppEnabled             Boolean  @default(true)
+  inAppBanners             Boolean  @default(true)
+  inAppPopups              Boolean  @default(true)
+  appointmentNotifications Json     @default("{}")
+  paymentNotifications     Json     @default("{}")
+  messageNotifications     Json     @default("{}")
+  systemNotifications      Json     @default("{}")
+  marketingNotifications   Json     @default("{}")
+  urgentNotifications      Json     @default("{}")
+  dailyEmailLimit          Int      @default(10)
+  dailySmsLimit            Int      @default(3)
+  dailyPushLimit           Int      @default(20)
+  deliveryMethod           Json     @default("{}")
+  notificationEmail        String?
+  notificationPhone        String?
+  language                 String   @default("en")
+  dateFormat               String   @default("MM/dd/yyyy")
+  timeFormat               String   @default("12")
+  includePersonalDetails   Boolean  @default(true)
+  includeActionButtons     Boolean  @default(true)
+  trackOpenRates           Boolean  @default(true)
+  allowAnalytics           Boolean  @default(true)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  user                     User     @relation("NotificationPreferences", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+model NotificationTemplate {
+  id               String                 @id @default(cuid())
+  name             String
+  description      String?
+  templateKey      String                 @unique
+  notificationType NotificationType
+  category         NotificationCategory
+  emailSubject     String?
+  emailBodyText    String?
+  emailBodyHtml    String?
+  smsContent       String?
+  pushTitle        String?
+  pushBody         String?
+  inAppTitle       String?
+  inAppMessage     String?
+  inAppActions     Json?
+  variables        Json
+  sampleData       Json?
+  conditions       Json?
+  isActive         Boolean                @default(true)
+  isPublic         Boolean                @default(false)
+  requiresApproval Boolean                @default(false)
+  version          String                 @default("1.0")
+  parentTemplateId String?
+  usageCount       Int                    @default(0)
+  lastUsedAt       DateTime?
+  isApproved       Boolean                @default(false)
+  approvedBy       String?
+  approvedAt       DateTime?
+  approvalNotes    String?
+  isTestTemplate   Boolean                @default(false)
+  testPercentage   Int                    @default(0)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  campaigns        NotificationCampaign[]
+  approver         User?                  @relation("ApprovedNotificationTemplates", fields: [approvedBy], references: [id])
+  parentTemplate   NotificationTemplate?  @relation("TemplateVersions", fields: [parentTemplateId], references: [id])
+  childTemplates   NotificationTemplate[] @relation("TemplateVersions")
+  notifications    Notification[]
+
+  @@index([notificationType, category, isActive])
+  @@index([templateKey])
+  @@index([isApproved, isActive])
+  @@map("notification_templates")
+}
+
+model NotificationCampaign {
+  id                    String                @id @default(cuid())
+  name                  String
+  description           String?
+  campaignType          CampaignType          @default(BULK)
+  targetAudience        Json
+  templateId            String?
+  customContent         Json?
+  scheduledAt           DateTime?
+  startDate             DateTime?
+  endDate               DateTime?
+  channels              Json
+  respectPreferences    Boolean               @default(true)
+  maxRecipientsPerBatch Int                   @default(100)
+  batchDelay            Int                   @default(5)
+  status                CampaignStatus        @default(DRAFT)
+  totalRecipients       Int                   @default(0)
+  sentCount             Int                   @default(0)
+  deliveredCount        Int                   @default(0)
+  openedCount           Int                   @default(0)
+  clickedCount          Int                   @default(0)
+  unsubscribedCount     Int                   @default(0)
+  deliveryRate          Float                 @default(0.0)
+  openRate              Float                 @default(0.0)
+  clickRate             Float                 @default(0.0)
+  unsubscribeRate       Float                 @default(0.0)
+  isABTest              Boolean               @default(false)
+  testVariants          Json?
+  requiresApproval      Boolean               @default(false)
+  isApproved            Boolean               @default(false)
+  approvedBy            String?
+  approvedAt            DateTime?
+  createdBy             String
+  pausedBy              String?
+  pausedAt              DateTime?
+  pauseReason           String?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  completedAt           DateTime?
+  approver              User?                 @relation("ApprovedCampaigns", fields: [approvedBy], references: [id])
+  creator               User                  @relation("CreatedCampaigns", fields: [createdBy], references: [id])
+  pauser                User?                 @relation("PausedCampaigns", fields: [pausedBy], references: [id])
+  template              NotificationTemplate? @relation(fields: [templateId], references: [id])
+  notifications         Notification[]
+
+  @@index([status, scheduledAt])
+  @@index([createdBy, status])
+  @@map("notification_campaigns")
+}
+
+model NotificationQueue {
+  id             String       @id @default(cuid())
+  queueName      String
+  priority       Int          @default(5)
+  notificationId String       @unique
+  attempts       Int          @default(0)
+  maxAttempts    Int          @default(3)
+  nextAttempt    DateTime
+  status         QueueStatus  @default(QUEUED)
+  processedAt    DateTime?
+  errorMessage   String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  notification   Notification @relation("QueuedNotification", fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([queueName, priority, nextAttempt])
+  @@index([status, nextAttempt])
+  @@map("notification_queue")
+}
+
+model NotificationDeliveryLog {
+  id                String              @id @default(cuid())
+  notificationId    String
+  channel           NotificationChannel
+  provider          String?
+  providerMessageId String?
+  status            DeliveryStatus
+  attemptNumber     Int                 @default(1)
+  responseCode      String?
+  responseMessage   String?
+  responseHeaders   Json?
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  failedAt          DateTime?
+  errorCode         String?
+  errorMessage      String?
+  openedAt          DateTime?
+  clickedAt         DateTime?
+  unsubscribedAt    DateTime?
+  metadata          Json?
+  createdAt         DateTime            @default(now())
+  notification      Notification        @relation("DeliveryLogs", fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId, channel])
+  @@index([status, createdAt])
+  @@index([provider, providerMessageId])
+  @@map("notification_delivery_logs")
+}
+
+model NotificationWebhook {
+  id            String    @id @default(cuid())
+  name          String
+  url           String
+  secret        String
+  events        Json
+  isActive      Boolean   @default(true)
+  authHeader    String?
+  maxRetries    Int       @default(3)
+  retryDelay    Int       @default(5)
+  rateLimit     Int       @default(100)
+  lastTriggered DateTime?
+  successCount  Int       @default(0)
+  failureCount  Int       @default(0)
+  createdBy     String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  creator       User      @relation("CreatedWebhooks", fields: [createdBy], references: [id])
+
+  @@index([isActive, events])
+  @@map("notification_webhooks")
+}
+
+model NotificationAnalytics {
+  id                String                @id @default(cuid())
+  date              DateTime
+  hour              Int?
+  notificationType  NotificationType?
+  category          NotificationCategory?
+  channel           NotificationChannel?
+  totalSent         Int                   @default(0)
+  totalDelivered    Int                   @default(0)
+  totalOpened       Int                   @default(0)
+  totalClicked      Int                   @default(0)
+  totalFailed       Int                   @default(0)
+  totalBounced      Int                   @default(0)
+  totalUnsubscribed Int                   @default(0)
+  deliveryRate      Float                 @default(0.0)
+  openRate          Float                 @default(0.0)
+  clickRate         Float                 @default(0.0)
+  bounceRate        Float                 @default(0.0)
+  unsubscribeRate   Float                 @default(0.0)
+  avgDeliveryTime   Float?
+  avgResponseTime   Float?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@unique([date, hour, notificationType, category, channel])
+  @@index([date, notificationType, category])
+  @@map("notification_analytics")
+}
+
+model NotificationOptOut {
+  id             String     @id @default(cuid())
+  userId         String?
+  email          String
+  phone          String?
+  optOutType     OptOutType @default(ALL)
+  optOutScope    Json?
+  source         String
+  sourceToken    String?
+  ipAddress      String?
+  userAgent      String?
+  isActive       Boolean    @default(true)
+  resubscribedAt DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  user           User?      @relation("OptedOutNotifications", fields: [userId], references: [id])
+
+  @@index([email, optOutType, isActive])
+  @@index([userId, isActive])
+  @@index([sourceToken])
+  @@map("notification_opt_outs")
+}
+
+model SearchQuery {
+  id                 String              @id @default(cuid())
+  userId             String?
+  sessionId          String?
+  query              String
+  originalQuery      String
+  normalizedQuery    String
+  queryType          QueryType           @default(BASIC)
+  filters            Json?
+  location           Json?
+  radius             Float?
+  priceRange         Json?
+  availabilityFilter Json?
+  sortBy             String?
+  sortOrder          SortOrder           @default(DESC)
+  resultsCount       Int                 @default(0)
+  responseTime       Int?
+  clickedResults     Json?
+  bookingResults     Json?
+  userAgent          String?
+  ipAddress          String?
+  referrer           String?
+  searchSource       SearchSource        @default(WEB)
+  createdAt          DateTime            @default(now())
+  savedSearch        SavedSearch?
+  interactions       SearchInteraction[]
+  user               User?               @relation("UserSearches", fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([query, createdAt])
+  @@index([location])
+  @@map("search_queries")
+}
+
+model SavedSearch {
+  id              String         @id @default(cuid())
+  userId          String
+  name            String
+  description     String?
+  queryId         String         @unique
+  alertEnabled    Boolean        @default(false)
+  alertFrequency  AlertFrequency @default(DAILY)
+  lastAlertSent   DateTime?
+  newResultsCount Int            @default(0)
+  folderId        String?
+  tags            String[]       @default([])
+  isPublic        Boolean        @default(false)
+  shareToken      String?        @unique
+  executionCount  Int            @default(0)
+  lastExecuted    DateTime?
+  avgResponseTime Int?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  folder          SearchFolder?  @relation(fields: [folderId], references: [id])
+  query           SearchQuery    @relation(fields: [queryId], references: [id], onDelete: Cascade)
+  user            User           @relation("UserSavedSearches", fields: [userId], references: [id])
+  alerts          SearchAlert[]
+
+  @@index([userId, createdAt])
+  @@index([alertEnabled, lastAlertSent])
+  @@map("saved_searches")
+}
+
+model SearchFolder {
+  id          String         @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  color       String?        @default("#3B82F6")
+  parentId    String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  searches    SavedSearch[]
+  parent      SearchFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children    SearchFolder[] @relation("FolderHierarchy")
+  user        User           @relation("UserSearchFolders", fields: [userId], references: [id])
+
+  @@index([userId, name])
+  @@map("search_folders")
+}
+
+model SearchAlert {
+  id                   String                @id @default(cuid())
+  savedSearchId        String
+  userId               String
+  name                 String
+  isActive             Boolean               @default(true)
+  frequency            AlertFrequency        @default(DAILY)
+  channels             NotificationChannel[] @default([EMAIL])
+  minNewResults        Int                   @default(1)
+  qualityThreshold     Float?
+  priceChangeAlert     Boolean               @default(false)
+  availabilityAlert    Boolean               @default(false)
+  timeSlots            Json?
+  timezone             String                @default("UTC")
+  lastTriggered        DateTime?
+  nextScheduled        DateTime?
+  triggerCount         Int                   @default(0)
+  successfulDeliveries Int                   @default(0)
+  avgRelevanceScore    Float?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  deliveries           AlertDelivery[]
+  savedSearch          SavedSearch           @relation(fields: [savedSearchId], references: [id], onDelete: Cascade)
+  user                 User                  @relation("UserSearchAlerts", fields: [userId], references: [id])
+
+  @@index([isActive, nextScheduled])
+  @@index([userId, createdAt])
+  @@map("search_alerts")
+}
+
+model AlertDelivery {
+  id             String              @id @default(cuid())
+  alertId        String
+  deliveredAt    DateTime            @default(now())
+  channel        NotificationChannel
+  status         DeliveryStatus      @default(NOT_SENT)
+  resultCount    Int
+  results        Json
+  subject        String?
+  content        String?
+  opened         Boolean             @default(false)
+  openedAt       DateTime?
+  clicked        Boolean             @default(false)
+  clickedAt      DateTime?
+  clickedResults Json?
+  alert          SearchAlert         @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+  @@index([alertId, deliveredAt])
+  @@index([status, deliveredAt])
+  @@map("alert_deliveries")
+}
+
+model SearchInteraction {
+  id              String          @id @default(cuid())
+  queryId         String
+  userId          String?
+  interactionType InteractionType
+  targetId        String
+  targetType      String
+  position        Int?
+  page            Int?
+  section         String?
+  timestamp       DateTime        @default(now())
+  sessionId       String?
+  metadata        Json?
+  query           SearchQuery     @relation(fields: [queryId], references: [id], onDelete: Cascade)
+  user            User?           @relation("UserSearchInteractions", fields: [userId], references: [id])
+
+  @@index([queryId, timestamp])
+  @@index([userId, timestamp])
+  @@index([targetId, interactionType])
+  @@map("search_interactions")
+}
+
+model SearchSuggestion {
+  id              String             @id @default(cuid())
+  term            String             @unique
+  normalizedTerm  String
+  category        SuggestionCategory @default(GENERAL)
+  searchCount     Int                @default(0)
+  clickCount      Int                @default(0)
+  conversionCount Int                @default(0)
+  relevanceScore  Float              @default(0.0)
+  trendingScore   Float              @default(0.0)
+  qualityScore    Float              @default(0.0)
+  isActive        Boolean            @default(true)
+  isBlacklisted   Boolean            @default(false)
+  customRank      Int?
+  relatedTerms    String[]           @default([])
+  practiceAreas   String[]           @default([])
+  locations       String[]           @default([])
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([term, isActive])
+  @@index([category, relevanceScore])
+  @@index([trendingScore])
+  @@map("search_suggestions")
+}
+
+model SearchAnalytics {
+  id                    String   @id @default(cuid())
+  date                  DateTime @unique @db.Date
+  totalSearches         Int      @default(0)
+  uniqueSearchers       Int      @default(0)
+  anonymousSearches     Int      @default(0)
+  authenticatedSearches Int      @default(0)
+  avgQueryLength        Float    @default(0.0)
+  topQueries            Json?
+  failedQueries         Json?
+  refinedQueries        Json?
+  avgResultsReturned    Float    @default(0.0)
+  avgResponseTime       Float    @default(0.0)
+  zeroResultSearches    Int      @default(0)
+  avgClickPosition      Float    @default(0.0)
+  clickThroughRate      Float    @default(0.0)
+  searchToBookingRate   Float    @default(0.0)
+  sessionDuration       Float    @default(0.0)
+  serverResponseTime    Float    @default(0.0)
+  cacheHitRate          Float    @default(0.0)
+  errorRate             Float    @default(0.0)
+  topLocations          Json?
+  locationSearches      Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([date])
+  @@map("search_analytics")
+}
+
+model LawyerSearchRank {
+  id                String        @id @default(cuid())
+  lawyerId          String        @unique
+  overallScore      Float         @default(0.0)
+  relevanceScore    Float         @default(0.0)
+  popularityScore   Float         @default(0.0)
+  qualityScore      Float         @default(0.0)
+  availabilityScore Float         @default(0.0)
+  locationScore     Float         @default(0.0)
+  priceScore        Float         @default(0.0)
+  searchImpressions Int           @default(0)
+  searchClicks      Int           @default(0)
+  searchBookings    Int           @default(0)
+  avgPosition       Float         @default(0.0)
+  last7DaysScore    Float         @default(0.0)
+  last30DaysScore   Float         @default(0.0)
+  trendingScore     Float         @default(0.0)
+  practiceAreaRanks Json?
+  locationRanks     Json?
+  priceRanks        Json?
+  lastUpdated       DateTime      @default(now())
+  createdAt         DateTime      @default(now())
+  lawyer            LawyerProfile @relation("SearchRankings", fields: [lawyerId], references: [id], onDelete: Cascade)
+
+  @@index([overallScore])
+  @@index([practiceAreaRanks])
+  @@index([locationRanks])
+  @@map("lawyer_search_ranks")
+}
+
+model SearchRecommendation {
+  id                 String                      @id @default(cuid())
+  userId             String
+  recommendationType RecommendationType
+  targetId           String
+  targetType         String
+  confidenceScore    Float                       @default(0.0)
+  relevanceScore     Float                       @default(0.0)
+  personalizedScore  Float                       @default(0.0)
+  reasons            Json?
+  context            Json?
+  algorithm          String
+  impressions        Int                         @default(0)
+  clicks             Int                         @default(0)
+  conversions        Int                         @default(0)
+  feedback           Json?
+  isActive           Boolean                     @default(true)
+  expiresAt          DateTime?
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+  interactions       RecommendationInteraction[]
+  user               User                        @relation("UserRecommendations", fields: [userId], references: [id])
+
+  @@index([userId, isActive])
+  @@index([targetId, targetType])
+  @@index([confidenceScore])
+  @@map("search_recommendations")
+}
+
+model RecommendationInteraction {
+  id               String                  @id @default(cuid())
+  recommendationId String
+  userId           String?
+  interactionType  InteractionType
+  feedback         RecommendationFeedback?
+  rating           Int?
+  comment          String?
+  timestamp        DateTime                @default(now())
+  sessionId        String?
+  metadata         Json?
+  recommendation   SearchRecommendation    @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  user             User?                   @relation("UserRecommendationInteractions", fields: [userId], references: [id])
+
+  @@index([recommendationId, timestamp])
+  @@index([userId, timestamp])
+  @@map("recommendation_interactions")
+}
+
+model EventTracking {
+  id                   String   @id @default(cuid())
+  eventName            String   @map("event_name")
+  eventCategory        String   @map("event_category")
+  eventAction          String   @map("event_action")
+  userId               String?  @map("user_id")
+  sessionId            String?  @map("session_id")
+  eventProperties      Json     @default("{}") @map("event_properties")
+  eventValue           Decimal? @map("event_value") @db.Decimal(10, 2)
+  userAgent            String?  @map("user_agent")
+  ipAddress            String?  @map("ip_address")
+  deviceType           String?  @map("device_type")
+  browserName          String?  @map("browser_name")
+  operatingSystem      String?  @map("operating_system")
+  country              String?
+  state                String?
+  city                 String?
+  timezone             String?
+  referrerUrl          String?  @map("referrer_url")
+  utmSource            String?  @map("utm_source")
+  utmMedium            String?  @map("utm_medium")
+  utmCampaign          String?  @map("utm_campaign")
+  utmTerm              String?  @map("utm_term")
+  utmContent           String?  @map("utm_content")
+  pageUrl              String?  @map("page_url")
+  featureName          String?  @map("feature_name")
+  componentName        String?  @map("component_name")
+  eventTimestamp       DateTime @default(now()) @map("event_timestamp")
+  pageLoadTime         Int?     @map("page_load_time")
+  serverProcessingTime Int?     @map("server_processing_time")
+  experimentId         String?  @map("experiment_id")
+  experimentVariant    String?  @map("experiment_variant")
+  isValid              Boolean  @default(true) @map("is_valid")
+  validationErrors     Json     @default("{}") @map("validation_errors")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  user                 User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId, eventTimestamp])
+  @@index([eventCategory, eventAction, eventTimestamp])
+  @@index([sessionId, eventTimestamp])
+  @@index([experimentId, experimentVariant])
+  @@index([eventTimestamp])
+  @@map("event_tracking")
+}
+
+model SystemMetrics {
+  id               String   @id @default(cuid())
+  metricName       String   @map("metric_name")
+  metricType       String   @map("metric_type")
+  component        String
+  value            Decimal  @db.Decimal(15, 6)
+  unit             String?
+  minValue         Decimal? @map("min_value") @db.Decimal(15, 6)
+  maxValue         Decimal? @map("max_value") @db.Decimal(15, 6)
+  avgValue         Decimal? @map("avg_value") @db.Decimal(15, 6)
+  sumValue         Decimal? @map("sum_value") @db.Decimal(15, 6)
+  count            Int?
+  tags             Json     @default("{}")
+  dimensions       Json     @default("{}")
+  timestamp        DateTime @default(now())
+  granularity      String   @default("minute")
+  threshold        Decimal? @db.Decimal(15, 6)
+  isAlertTriggered Boolean  @default(false) @map("is_alert_triggered")
+  alertLevel       String?  @map("alert_level")
+  retentionDays    Int      @default(90) @map("retention_days")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([component, metricName, timestamp])
+  @@index([isAlertTriggered, alertLevel, timestamp])
+  @@index([timestamp, retentionDays])
+  @@map("system_metrics")
+}
+
+model BusinessMetrics {
+  id                        String   @id @default(cuid())
+  date                      DateTime @db.Date
+  hour                      Int?
+  totalRevenue              Decimal  @default(0) @map("total_revenue") @db.Decimal(12, 2)
+  platformRevenue           Decimal  @default(0) @map("platform_revenue") @db.Decimal(12, 2)
+  lawyerEarnings            Decimal  @default(0) @map("lawyer_earnings") @db.Decimal(12, 2)
+  totalUsers                Int      @default(0) @map("total_users")
+  newUsers                  Int      @default(0) @map("new_users")
+  activeUsers               Int      @default(0) @map("active_users")
+  returningUsers            Int      @default(0) @map("returning_users")
+  totalLawyers              Int      @default(0) @map("total_lawyers")
+  newLawyers                Int      @default(0) @map("new_lawyers")
+  activeLawyers             Int      @default(0) @map("active_lawyers")
+  verifiedLawyers           Int      @default(0) @map("verified_lawyers")
+  totalBookings             Int      @default(0) @map("total_bookings")
+  newBookings               Int      @default(0) @map("new_bookings")
+  completedBookings         Int      @default(0) @map("completed_bookings")
+  cancelledBookings         Int      @default(0) @map("cancelled_bookings")
+  bookingValue              Decimal  @default(0) @map("booking_value") @db.Decimal(12, 2)
+  searchToBookingRate       Decimal  @default(0) @map("search_to_booking_rate") @db.Decimal(5, 2)
+  signupToBookingRate       Decimal  @default(0) @map("signup_to_booking_rate") @db.Decimal(5, 2)
+  visitToSignupRate         Decimal  @default(0) @map("visit_to_signup_rate") @db.Decimal(5, 2)
+  averageSessionDuration    Int      @default(0) @map("average_session_duration")
+  pagesPerSession           Decimal  @default(0) @map("pages_per_session") @db.Decimal(5, 2)
+  bounceRate                Decimal  @default(0) @map("bounce_rate") @db.Decimal(5, 2)
+  averageRating             Decimal  @default(0) @map("average_rating") @db.Decimal(3, 2)
+  reviewCount               Int      @default(0) @map("review_count")
+  customerSatisfactionScore Decimal  @default(0) @map("customer_satisfaction_score") @db.Decimal(5, 2)
+  customerAcquisitionCost   Decimal  @default(0) @map("customer_acquisition_cost") @db.Decimal(10, 2)
+  customerLifetimeValue     Decimal  @default(0) @map("customer_lifetime_value") @db.Decimal(10, 2)
+  monthlyRecurringRevenue   Decimal  @default(0) @map("monthly_recurring_revenue") @db.Decimal(12, 2)
+  churnRate                 Decimal  @default(0) @map("churn_rate") @db.Decimal(5, 2)
+  country                   String?
+  state                     String?
+  city                      String?
+  userSegment               String?  @map("user_segment")
+  practiceAreaCategory      String?  @map("practice_area_category")
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+
+  @@unique([date, hour, country, state, city, userSegment])
+  @@index([date, hour])
+  @@index([country, state, city])
+  @@index([userSegment, practiceAreaCategory])
+  @@map("business_metrics")
+}
+
+model UserJourneys {
+  id                 String    @id @default(cuid())
+  userId             String?   @map("user_id")
+  sessionId          String    @map("session_id")
+  journeyType        String    @map("journey_type")
+  currentStep        String    @map("current_step")
+  totalSteps         Int       @map("total_steps")
+  completedSteps     Int       @default(0) @map("completed_steps")
+  isCompleted        Boolean   @default(false) @map("is_completed")
+  isAbandoned        Boolean   @default(false) @map("is_abandoned")
+  abandonmentReason  String?   @map("abandonment_reason")
+  abandonmentStep    String?   @map("abandonment_step")
+  startedAt          DateTime  @default(now()) @map("started_at")
+  completedAt        DateTime? @map("completed_at")
+  abandonedAt        DateTime? @map("abandoned_at")
+  totalDuration      Int?      @map("total_duration")
+  stepSequence       Json      @default("[]") @map("step_sequence")
+  actionSequence     Json      @default("[]") @map("action_sequence")
+  entryPoint         String?   @map("entry_point")
+  referralSource     String?   @map("referral_source")
+  campaignSource     String?   @map("campaign_source")
+  userType           String?   @map("user_type")
+  deviceType         String?   @map("device_type")
+  isFirstTimeJourney Boolean   @default(false) @map("is_first_time_journey")
+  conversionValue    Decimal?  @map("conversion_value") @db.Decimal(10, 2)
+  goalAchieved       Boolean   @default(false) @map("goal_achieved")
+  experimentId       String?   @map("experiment_id")
+  experimentVariant  String?   @map("experiment_variant")
+  journeyMetadata    Json      @default("{}") @map("journey_metadata")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  user               User?     @relation(fields: [userId], references: [id])
+
+  @@index([userId, startedAt])
+  @@index([sessionId, startedAt])
+  @@index([journeyType, isCompleted, startedAt])
+  @@index([experimentId, experimentVariant])
+  @@index([isCompleted, isAbandoned, startedAt])
+  @@map("user_journeys")
+}
+
+model SystemAlerts {
+  id                   String    @id @default(cuid())
+  alertName            String    @map("alert_name")
+  alertType            String    @map("alert_type")
+  severity             String
+  title                String
+  description          String
+  component            String
+  metricName           String?   @map("metric_name")
+  threshold            Decimal?  @db.Decimal(15, 6)
+  actualValue          Decimal?  @map("actual_value") @db.Decimal(15, 6)
+  condition            String?
+  status               String    @default("active")
+  acknowledgedBy       String?   @map("acknowledged_by")
+  acknowledgedAt       DateTime? @map("acknowledged_at")
+  resolvedBy           String?   @map("resolved_by")
+  resolvedAt           DateTime? @map("resolved_at")
+  triggeredAt          DateTime  @default(now()) @map("triggered_at")
+  firstOccurrence      DateTime? @map("first_occurrence")
+  lastOccurrence       DateTime? @map("last_occurrence")
+  occurrenceCount      Int       @default(1) @map("occurrence_count")
+  affectedUsers        Int       @default(0) @map("affected_users")
+  affectedRevenue      Decimal   @default(0) @map("affected_revenue") @db.Decimal(12, 2)
+  impactLevel          String?   @map("impact_level")
+  resolutionNotes      String?   @map("resolution_notes")
+  rootCause            String?   @map("root_cause")
+  preventionMeasures   String?   @map("prevention_measures")
+  timeToResolution     Int?      @map("time_to_resolution")
+  notificationsSent    Int       @default(0) @map("notifications_sent")
+  escalationLevel      Int       @default(0) @map("escalation_level")
+  lastNotificationSent DateTime? @map("last_notification_sent")
+  alertMetadata        Json      @default("{}") @map("alert_metadata")
+  tags                 Json      @default("{}")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  acknowledgedByUser   User?     @relation("AlertAcknowledgedBy", fields: [acknowledgedBy], references: [id])
+  resolvedByUser       User?     @relation("AlertResolvedBy", fields: [resolvedBy], references: [id])
+
+  @@index([status, severity, triggeredAt])
+  @@index([component, alertType, triggeredAt])
+  @@index([resolvedAt, timeToResolution])
+  @@map("system_alerts")
+}
+
+model ExperimentResults {
+  id                      String    @id @default(cuid())
+  experimentId            String    @unique @map("experiment_id")
+  experimentName          String    @map("experiment_name")
+  experimentType          String    @map("experiment_type")
+  hypothesis              String
+  startDate               DateTime  @map("start_date") @db.Date
+  endDate                 DateTime? @map("end_date") @db.Date
+  targetSampleSize        Int?      @map("target_sample_size")
+  variants                Json
+  totalParticipants       Int       @default(0) @map("total_participants")
+  conversionRate          Decimal   @default(0) @map("conversion_rate") @db.Decimal(5, 2)
+  statisticalSignificance Decimal   @default(0) @map("statistical_significance") @db.Decimal(5, 2)
+  confidenceLevel         Decimal   @default(95.0) @map("confidence_level") @db.Decimal(5, 2)
+  variantResults          Json      @default("{}") @map("variant_results")
+  winningVariant          String?   @map("winning_variant")
+  liftPercentage          Decimal   @default(0) @map("lift_percentage") @db.Decimal(5, 2)
+  primaryMetric           String    @map("primary_metric")
+  secondaryMetrics        Json      @default("[]") @map("secondary_metrics")
+  pValue                  Decimal?  @map("p_value") @db.Decimal(10, 8)
+  zScore                  Decimal?  @map("z_score") @db.Decimal(10, 6)
+  effectSize              Decimal?  @map("effect_size") @db.Decimal(10, 6)
+  status                  String    @default("running")
+  conclusion              String?
+  recommendations         String?
+  projectedImpact         Decimal?  @map("projected_impact") @db.Decimal(12, 2)
+  implementationCost      Decimal?  @map("implementation_cost") @db.Decimal(12, 2)
+  roi                     Decimal?  @db.Decimal(10, 2)
+  dataQuality             Decimal   @default(100.0) @map("data_quality") @db.Decimal(5, 2)
+  biasIndicators          Json      @default("{}") @map("bias_indicators")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, startDate])
+  @@index([conversionRate, statisticalSignificance])
+  @@index([startDate, endDate])
+  @@map("experiment_results")
+}
+
+model AnalyticsCache {
+  id              String   @id @default(cuid())
+  cacheKey        String   @unique @map("cache_key")
+  cacheType       String   @map("cache_type")
+  data            Json
+  metadata        Json     @default("{}")
+  expiresAt       DateTime @map("expires_at")
+  isValid         Boolean  @default(true) @map("is_valid")
+  hitCount        Int      @default(0) @map("hit_count")
+  lastAccessed    DateTime @default(now()) @map("last_accessed")
+  computationTime Int?     @map("computation_time")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([cacheKey, isValid])
+  @@index([expiresAt, isValid])
+  @@index([cacheType, expiresAt])
+  @@map("analytics_cache")
+}
+
+model FeatureUsage {
+  id                String   @id @default(cuid())
+  featureName       String   @map("feature_name")
+  featureCategory   String   @map("feature_category")
+  userId            String?  @map("user_id")
+  sessionId         String?  @map("session_id")
+  usageCount        Int      @default(1) @map("usage_count")
+  usageDuration     Int?     @map("usage_duration")
+  lastUsedAt        DateTime @default(now()) @map("last_used_at")
+  isActive          Boolean  @default(true) @map("is_active")
+  featureVersion    String?  @map("feature_version")
+  satisfactionScore Int?     @map("satisfaction_score")
+  feedbackProvided  String?  @map("feedback_provided")
+  usageDate         DateTime @default(now()) @map("usage_date") @db.Date
+  createdAt         DateTime @default(now()) @map("created_at")
+  user              User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId, usageDate])
+  @@index([featureName, usageDate])
+  @@index([usageDate, featureCategory])
+  @@map("feature_usage")
+}
+
+enum UserRole {
+  CLIENT
+  LAWYER
+  ADMIN
+}
+
+enum MFAMethod {
+  NONE
+  TOTP
+  SMS
+  EMAIL
+  BACKUP
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MessageType {
+  TEXT
+  FILE
+  IMAGE
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  DOCUMENTS_REQUIRED
+  UNDER_REVIEW
+  SUSPENDED
+}
+
+enum VerificationDocumentType {
+  BAR_LICENSE
+  STATE_ID
+  INSURANCE_CERT
+  EDUCATION_DIPLOMA
+  PROFESSIONAL_CERT
+  OTHER
+}
+
+enum DocumentVerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ConsultationType {
+  VIDEO
+  PHONE
+  IN_PERSON
+  EMERGENCY
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum RefundStatus {
+  NONE
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+enum NoShowStatus {
+  CLIENT_NO_SHOW
+  LAWYER_NO_SHOW
+  BOTH_NO_SHOW
+}
+
+enum PaymentProvider {
+  STRIPE
+  KAPITAL_BANK
+  AZERBAIJAN_POSTAL_BANK
+  PASHABANK
+  INTERNATIONAL_BANK
+  ACCESS_BANK
+  UNIBANK
+  RABITABANK
+  PAYPAL
+  LOCAL_TRANSFER
+}
+
+enum Currency {
+  AZN
+  USD
+  EUR
+  GBP
+  TRY
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum DisputeStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  ESCALATED
+  CLOSED
+}
+
+enum DisputeType {
+  SERVICE_NOT_PROVIDED
+  POOR_QUALITY
+  BILLING_ERROR
+  NO_SHOW_CLIENT
+  NO_SHOW_LAWYER
+  TECHNICAL_ISSUES
+  FRAUD
+  REFUND_REQUEST
+}
+
+enum EscrowStatus {
+  HELD
+  RELEASED_TO_LAWYER
+  RELEASED_TO_CLIENT
+  PARTIAL_RELEASE
+  DISPUTED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DocumentFolderType {
+  GENERAL
+  CASE_FOLDER
+  CLIENT_FOLDER
+  TEMPLATE_FOLDER
+  ARCHIVE
+  SHARED
+}
+
+enum DocumentType {
+  CONTRACT
+  AGREEMENT
+  MOTION
+  BRIEF
+  CORRESPONDENCE
+  EVIDENCE
+  COURT_FILING
+  LEGAL_OPINION
+  MEMO
+  INVOICE
+  RECEIPT
+  FORM
+  REPORT
+  OTHER
+}
+
+enum DocumentCategory {
+  LEGAL_DOCUMENT
+  CLIENT_FILE
+  COURT_FILING
+  CORRESPONDENCE
+  EVIDENCE
+  FINANCIAL
+  ADMINISTRATIVE
+  TEMPLATE
+  DRAFT
+  FINAL
+}
+
+enum SecurityLevel {
+  PUBLIC
+  STANDARD
+  CONFIDENTIAL
+  RESTRICTED
+  TOP_SECRET
+}
+
+enum DocumentStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+  UNDER_REVIEW
+  LOCKED
+}
+
+enum WorkflowStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  REJECTED
+  SIGNED
+  EXECUTED
+  ARCHIVED
+}
+
+enum LockStatus {
+  UNLOCKED
+  LOCKED
+  EDITING
+  CHECKING_OUT
+}
+
+enum RetentionPolicy {
+  STANDARD
+  LEGAL_HOLD
+  PERMANENT
+  SHORT_TERM
+  LONG_TERM
+}
+
+enum ChangeType {
+  CREATION
+  MODIFICATION
+  MAJOR_REVISION
+  MINOR_REVISION
+  MERGE
+  ROLLBACK
+}
+
+enum ShareType {
+  DIRECT
+  LINK
+  PUBLIC
+  EXTERNAL
+}
+
+enum AccessLevel {
+  READ
+  COMMENT
+  EDIT
+  FULL_ACCESS
+  OWNER
+}
+
+enum CommentType {
+  GENERAL
+  QUESTION
+  SUGGESTION
+  APPROVAL
+  REJECTION
+  ANNOTATION
+}
+
+enum CommentStatus {
+  ACTIVE
+  RESOLVED
+  DELETED
+  ARCHIVED
+}
+
+enum TemplateCategory {
+  CONTRACT
+  MOTION
+  BRIEF
+  LETTER
+  FORM
+  AGREEMENT
+  NOTICE
+  PLEADING
+  DISCOVERY
+  OTHER
+}
+
+enum TemplateStatus {
+  ACTIVE
+  INACTIVE
+  DEPRECATED
+  UNDER_REVIEW
+}
+
+enum SignatureWorkflowStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum SignatureType {
+  ELECTRONIC
+  DIGITAL_CERTIFICATE
+  WET_SIGNATURE
+  BIOMETRIC
+}
+
+enum IdentityVerificationStatus {
+  NOT_REQUIRED
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+enum SignatureStatus {
+  PENDING
+  INVITED
+  VIEWED
+  SIGNED
+  DECLINED
+  EXPIRED
+}
+
+enum DocumentSignatureAuditEvent {
+  REQUEST_CREATED
+  INVITATION_SENT
+  INVITATION_REVOKED
+  VIEWED
+  SIGNED
+  SIGNATURE_VALIDATED
+  REMINDER_SCHEDULED
+  REMINDER_SENT
+  DECLINED
+  CANCELLED
+  EXPIRED
+  NOTARIZED
+  WORKFLOW_COMPLETED
+}
+
+enum NotificationType {
+  APPOINTMENT_CONFIRMATION
+  APPOINTMENT_REMINDER_24H
+  APPOINTMENT_REMINDER_1H
+  APPOINTMENT_REMINDER_15M
+  APPOINTMENT_CANCELLED
+  APPOINTMENT_RESCHEDULED
+  CONSULTATION_STARTING
+  CONSULTATION_ENDED
+  PAYMENT_AUTHORIZED
+  PAYMENT_CAPTURED
+  PAYMENT_FAILED
+  REFUND_PROCESSED
+  PAYOUT_SENT
+  DISPUTE_CREATED
+  INVOICE_GENERATED
+  NEW_MESSAGE
+  VIDEO_CALL_INVITATION
+  DOCUMENT_SHARED
+  DOCUMENT_SIGNED
+  COMMENT_ADDED
+  MENTION_IN_COMMENT
+  SYSTEM_MAINTENANCE
+  SECURITY_ALERT
+  ACCOUNT_VERIFICATION
+  PASSWORD_RESET
+  LOGIN_ALERT
+  NEWSLETTER
+  PROMOTION
+  FEATURE_ANNOUNCEMENT
+  LEGAL_NOTICE
+  PRIVACY_UPDATE
+  TERMS_UPDATE
+}
+
+enum NotificationCategory {
+  BOOKING
+  PAYMENT
+  COMMUNICATION
+  SYSTEM
+  SECURITY
+  MARKETING
+  LEGAL
+  REMINDER
+  ALERT
+  UPDATE
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+  CRITICAL
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+  IN_APP
+  WEBHOOK
+}
+
+enum NotificationStatus {
+  PENDING
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum DeliveryStatus {
+  NOT_SENT
+  QUEUED
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  BOUNCED
+  FAILED
+  UNSUBSCRIBED
+}
+
+enum CampaignType {
+  BULK
+  TARGETED
+  TRIGGER_BASED
+  A_B_TEST
+  DRIP_CAMPAIGN
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  PAUSED
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum QueueStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum OptOutType {
+  ALL
+  EMAIL_ONLY
+  SMS_ONLY
+  PUSH_ONLY
+  MARKETING_ONLY
+  SPECIFIC_TYPES
+}
+
+enum QueryType {
+  BASIC
+  ADVANCED
+  SEMANTIC
+  BOOLEAN
+  FUZZY
+  AUTOCOMPLETE
+}
+
+enum SortOrder {
+  ASC
+  DESC
+}
+
+enum SearchSource {
+  WEB
+  MOBILE_APP
+  API
+  WIDGET
+  SAVED_SEARCH
+  ALERT
+}
+
+enum AlertFrequency {
+  IMMEDIATE
+  HOURLY
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum InteractionType {
+  VIEW
+  CLICK
+  HOVER
+  BOOKMARK
+  SHARE
+  CONTACT
+  BOOKING_ATTEMPT
+  BOOKING_SUCCESS
+  FEEDBACK
+  REFINEMENT
+}
+
+enum SuggestionCategory {
+  GENERAL
+  PRACTICE_AREA
+  LOCATION
+  LAWYER_NAME
+  FIRM_NAME
+  TRENDING
+  PERSONALIZED
+}
+
+enum RecommendationType {
+  CONTENT_BASED
+  COLLABORATIVE
+  HYBRID
+  TRENDING
+  POPULAR
+  PERSONALIZED
+  SIMILAR_USERS
+  LOCATION_BASED
+}
+
+enum RecommendationFeedback {
+  HELPFUL
+  NOT_HELPFUL
+  IRRELEVANT
+  ALREADY_CONTACTED
+  NOT_AVAILABLE
+  TOO_EXPENSIVE
+  WRONG_LOCATION
+  WRONG_SPECIALTY
+}
+
+enum MetricType {
+  GAUGE
+  COUNTER
+  HISTOGRAM
+  TIMER
+  SET
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+enum AlertStatus {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+  SUPPRESSED
+}
+
+enum ExperimentStatus {
+  PLANNING
+  RUNNING
+  COMPLETED
+  PAUSED
+  CANCELLED
+}
+
+enum ExperimentType {
+  AB_TEST
+  MULTIVARIATE
+  FEATURE_FLAG
+  SPLIT_TEST
+}
